@@ -1,0 +1,4 @@
+.idea/*
+node_modules/*
+.idea/chat_example.iml .idea/inspectionProfiles .idea/modules.xml .idea/vcs.xml .idea/workspace.xml
+.idea
