@@ -24,8 +24,8 @@ Before you can run this application by hosting it locally you need to modify `se
   >Seeting up APPQDN
         
         > domain: "xyz.com", // APPQDN of  your hosting enviorment [accept either DNS Or IP]
-        > port  : "5454", //APPQDN of  your hosting port
-  >setting up SSL credebtials
+        > port  : "5004", //APPQDN of  your hosting port
+  >setting up SSL credentials
         
         > ssl_key: " ./../cert/xyz.key", // use the certificate ".key" [self signed or registered]
         > ssl_cert : "./../cert/xyz.crt", // use the certificate ".crt" [self signed or registered]
