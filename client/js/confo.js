@@ -194,7 +194,7 @@ window.onload = function () {
     });
 }
 
-$(document).on("click", "div.licode_bar", function (e) {
+$(document).on("click", "div.vcx_bar", function (e) {
     $(this).parent().parent().toggleClass("fullScreen");
 });
 $(document).on("click", ".nav-tabs li a", function (e) {
