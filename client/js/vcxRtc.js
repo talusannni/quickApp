@@ -4868,7 +4868,7 @@ const Logger = (() => {
 
 
 const View = () => {
-  const that = Object(__WEBPACK_IMPORTED_MODULE_0__Events__["a" /* EventDispatcher */])({});
+  const that = Object(__WEBPACK_IMPORTED_MODULE_0__Events__["b" /* EventDispatcher */])({});
 
   // Variables
 
@@ -4885,8 +4885,8 @@ const View = () => {
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return EventDispatcher; });
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "b", function() { return LicodeEvent; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "b", function() { return EventDispatcher; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "a", function() { return Event; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "d", function() { return RoomEvent; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "e", function() { return StreamEvent; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "c", function() { return PublisherEvent; });
@@ -4937,7 +4937,7 @@ const EventDispatcher = () => {
   };
 
   // It dispatch a new event to the event listeners, based on the type
-  // of event. All events are intended to be LicodeEvents.
+  // of event. All events are intended to be Events.
   if(__WEBPACK_IMPORTED_MODULE_1__Pair__["a" /* default */].browserEngineCheck() !== 'IE'){
       that.dispatchEvent = (event) => {
           if (!event || !event.type) {				// Checking : If EventDispatcher is called with wrong event object or not
@@ -4979,13 +4979,13 @@ const EventDispatcher = () => {
 // **** EVENTS ****
 
 /*
- * Class LicodeEvent represents a generic Event in the library.
+ * Class Event represents a generic Event in the library.
  * It handles the type of event, that is important when adding
  * event listeners to EventDispatchers and dispatching new events.
- * A LicodeEvent can be initialized this way:
- * var event = LicodeEvent({type: "room-connected"});
+ * A Event can be initialized this way:
+ * var event = Event({type: "room-connected"});
  */
-const LicodeEvent = (spec) => {
+const Event = (spec) => {
   const that = {};
 
   // Event type. Examples are: 'room-connected', 'stream-added', etc.
@@ -4996,7 +4996,7 @@ const LicodeEvent = (spec) => {
 
 /*
  * Class RoomEvent represents an Event that happens in a Room. It is a
- * LicodeEvent.
+ * Event.
  * It is usually initialized as:
  * var roomEvent = RoomEvent({type:"room-connected", streams:[stream1, stream2]});
  * Event types:
@@ -5004,7 +5004,7 @@ const LicodeEvent = (spec) => {
  * 'room-disconnected' - shows that the user has been already disconnected.
  */
 const RoomEvent = (spec) => {
-  const that = LicodeEvent(spec);
+  const that = Event(spec);
 
   // A list with the streams that are published in the room.
   that.streams = spec.streams;
@@ -5015,7 +5015,7 @@ const RoomEvent = (spec) => {
 };
 
 /*
- * Class StreamEvent represents an event related to a stream. It is a LicodeEvent.
+ * Class StreamEvent represents an event related to a stream. It is a Event.
  * It is usually initialized this way:
  * var streamEvent = StreamEvent({type:"stream-added", stream:stream1});
  * Event types:
@@ -5023,7 +5023,7 @@ const RoomEvent = (spec) => {
  * 'stream-removed' - shows that a previous available stream has been removed from the room.
  */
 const StreamEvent = (spec) => {
-  const that = LicodeEvent(spec);
+  const that = Event(spec);
 
   // The stream related to this event.
   that.stream = spec.stream;
@@ -5036,20 +5036,20 @@ const StreamEvent = (spec) => {
 };
 
 /*
- * Class PublisherEvent represents an event related to a publisher. It is a LicodeEvent.
+ * Class PublisherEvent represents an event related to a publisher. It is a Event.
  * It usually initializes as:
  * var publisherEvent = PublisherEvent({})
  * Event types:
  * 'media-access-allowed' - indicates that the user has accepted to share his camera and microphone
  */
 const PublisherEvent = (spec) => {
-  const that = LicodeEvent(spec);
+  const that = Event(spec);
 
   return that;
 };
 
 const UserEvent = (spec) => {
-    const that = LicodeEvent(spec);
+    const that = Event(spec);
      that.name = spec.name;
      that.role = spec.role;
      that.permissions = spec.permission;
@@ -5058,10 +5058,10 @@ const UserEvent = (spec) => {
 };
 /*const PublishStream = (spec) => {
 
-  const that = LicodeEvent(spec);
+  const that = Event(spec);
   return that;
 };*/
-/*export { EventDispatcher, LicodeEvent, RoomEvent, StreamEvent, PublisherEvent,PublishStream };*/
+/*export { EventDispatcher, Event, RoomEvent, StreamEvent, PublisherEvent,PublishStream };*/
 
 
 /***/ }),
@@ -5520,7 +5520,7 @@ return that;
 
 const Room = (altIo, altConnection, specInput) => {
   const spec = specInput;
-  const that = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["a" /* EventDispatcher */])(specInput);
+  const that = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["b" /* EventDispatcher */])(specInput);
   const DISCONNECTED = 0;
   const CONNECTING = 1;
   const CONNECTED = 2;
@@ -5534,7 +5534,7 @@ const Room = (altIo, altConnection, specInput) => {
 
   let socket = Object(__WEBPACK_IMPORTED_MODULE_2__Socket__["a" /* Socket */])(altIo);
   that.socket = socket;
-  that.userList = undefined;
+  that.userList = new Map();
   that.cControlReq = undefined;
   that.cCrequest = [];
   that.awaitedParticipants = new Map();
@@ -5775,35 +5775,24 @@ const Room = (altIo, altConnection, specInput) => {
 	  const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'track-removed', streams: [updatedSTream],message: 'tracked removed from stream: '+streamID });
     that.dispatchEvent(evt);
   };
-  //that.userList = [];
   const userConnect = (arg) =>{
     const userName = arg.name;
     const userRole = arg.role;
     const userPermissions = arg.permissions;
-    const evt =Object(__WEBPACK_IMPORTED_MODULE_1__Events__["f" /* UserEvent */])({type: 'user-connected',name:userName,role:userRole,permission:userPermissions});
+    const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["f" /* UserEvent */])({type: 'user-connected',name:userName,role:userRole,permission:userPermissions});
     that.dispatchEvent(evt);
-	var usr ={};
-	usr.name = arg.name;
-	usr.role = arg.role;
-	
-	that.userList.push(usr);
+	const user ={name:arg.name,permissions:arg.permissions,role:arg.role,user_ref:arg.user_ref};
+	that.userList.set(arg.clientId,user);
     };
   const userDisConnect = (arg) =>{
-      var usrLst = that.userList;
 	  const userName = arg.name;
       const userRole = arg.role;
       const userPermissions = arg.permissions;
       const evt =Object(__WEBPACK_IMPORTED_MODULE_1__Events__["f" /* UserEvent */])({type: 'user-disconnected',name:userName,role:userRole,permission:userPermissions});
-	  for(var i = 0 ;i<usrLst.length;i++ ){
-		  if(usrLst[i].name == arg.name){
-			  usrLst.splice(i,1);
-		  }
-	  }
       that.dispatchEvent(evt);
-	  
-	  
+	  that.userList.delete(arg.clientId);
   };
-    const userSubcribe = (arg) =>{
+  const userSubcribe = (arg) =>{
         //cnsole.log("user connected evt data---------"+arg);
         const userName = arg.name;
         const userRef = arg.user_ref;
@@ -5811,15 +5800,15 @@ const Room = (altIo, altConnection, specInput) => {
         const socket = arg.socket;
         const evt =Object(__WEBPACK_IMPORTED_MODULE_1__Events__["c" /* PublisherEvent */])({type: 'user-subscribed',name:userName,role:userRole,user_ref:userRef,socket:socket});
         that.dispatchEvent(evt);
-    };
-    const userUnSubcribe = (arg) =>{
+  };
+  const userUnSubcribe = (arg) =>{
         const userName = arg.name;
         const userRef = arg.user_ref;
         const userRole = arg.role;
         const socket = arg.socket;
         const evt =Object(__WEBPACK_IMPORTED_MODULE_1__Events__["c" /* PublisherEvent */])({type: 'user-subscribed',name:userName,role:userRole,user_ref:userRef,socket:socket});
         that.dispatchEvent(evt);
-    };
+  };
   const  videoStop = (id) => {
       var screenSaver = __WEBPACK_IMPORTED_MODULE_4__views_Element__["a" /* default */].getById('screen_saver_'+id);
       var playBtn = __WEBPACK_IMPORTED_MODULE_4__views_Element__["a" /* default */].getByClass('icon_play',screenSaver.parentNode);
@@ -5829,7 +5818,6 @@ const Room = (altIo, altConnection, specInput) => {
       else if(screenSaver && screenSaver.style.display === 'block')
           screenSaver.style.display = 'none'
   }
-
   const socketOnVcxRtcMessage = (arg) => {
     let stream;
     if (arg.peerId) {
@@ -5842,7 +5830,6 @@ const Room = (altIo, altConnection, specInput) => {
       stream.pc.processSignalingMessage(arg.mess);
     }
   };
-
   const socketOnPeerMessage = (arg) => {
     let stream = localStreams.get(arg.streamId);
 
@@ -6063,8 +6050,8 @@ const Room = (altIo, altConnection, specInput) => {
     __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info('Publishing to Client Controller Normally, is createOffer', options.createOffer);
     const constraints = createSdpConstraints('media_engine', stream, options);
     constraints.minVideoBW = options.minVideoBW;
-    constraints.maxVideoBW = options.maxVideoBW;
     constraints.scheme = options.scheme;
+
     socket.sendSDP('publish', constraints, undefined, (id, error) => {
       if(typeof id != "object"){
 		  populateStreamFunctions(id, stream, error, undefined);
@@ -6221,6 +6208,7 @@ const Room = (altIo, altConnection, specInput) => {
         that.cControlReq=arg;
 		that.cCrequest.push(arg);
 		var a = JSON.stringify(arg);
+		__WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(JSON.parse(a).clientId+"::::"+JSON.parse(a).name);		
 		that.cCrequest.push(arg);
 		const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'floor_request',users: arg});
     that.dispatchEvent(floorReqEvt);
@@ -6231,11 +6219,12 @@ const Room = (altIo, altConnection, specInput) => {
 		that.ableToPublishStatus=1;
 		var lstrm  = locStrm;
 		//lstrm.forEach((stream, id) => {
-       __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(lstrm.getID()+" going to publish");
+       __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(lstrm.getID()+"going to publish");
 		var lstrm  = locStrm; 
 		var a = JSON.stringify(arg);
 		const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'floor_request_granted',users: arg});
         that.dispatchEvent(floorReqEvt);
+      __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(lstrm.getID()+"going to publish------>@sohom");
     };
 
    const floorNotGrnat = (arg) =>{
@@ -6265,23 +6254,24 @@ const Room = (altIo, altConnection, specInput) => {
 	 
    }
    const onHardmuteOne = (arg) =>{
+	   __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info("-----------------------mute one------------------");
        __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(arg);
 	   const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'hard_mute',users: arg});
 	   that.dispatchEvent(floorReqEvt);
    }
    const onHardmuteAll = (arg) =>{
+	   __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info("-----------------------mute all------------------");
        __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(arg);
 	   const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'hard_mute',users: arg});
 	   that.dispatchEvent(floorReqEvt);
    }
 	const onRoomAwaited = (arg) =>{
-        __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(JSON.stringify(arg));
+
     }
     const onUserAwaited = (arg) =>{
-        __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(JSON.stringify(arg));
         that.awaitedParticipants.set(arg.clientId,false);
     }
-    that.knockedUserApprove = (client,callback) =>{
+    that.approveAwaitedUser = (client,callback) =>{
 		that.socket.emitEvent('user-allowed',client,(result, error) => {
             if (result === null) {
                 __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].error('Error on knock approve request', error);               
@@ -6292,7 +6282,7 @@ const Room = (altIo, altConnection, specInput) => {
 			 callback(result, error);
         });
 	}
-	that.knockedUserDeny = (client,callback) =>{
+	that.denyAwaitedUser = (client,callback) =>{
 		that.socket.emitEvent('user-denied',client,(result, error) => {
             if (result === null) {
                 __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].error('Error on knock deny request', error);               
@@ -6336,7 +6326,9 @@ const Room = (altIo, altConnection, specInput) => {
       // 3 - Update RoomID
       that.roomID = roomId;
       __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(`Connected to room ${that.roomID}`);
-      that.userList = userList;
+      for(var user in userList){
+       that.userList.set(userList[user].clientId,userList[user]);
+      }
       const connectEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'room-connected', streams: streamList, users: userList, room: roomJson });
       that.dispatchEvent(connectEvt);
     }
@@ -6759,11 +6751,17 @@ const Room = (altIo, altConnection, specInput) => {
         that.postClientLogs = (tokenRef,callback = () => {}) => {
             /* */
             var token=__WEBPACK_IMPORTED_MODULE_6__utils_Base64__["a" /* default */].decodeBase64(tokenRef);
+
             var myData = localStorage.getItem('vcxRTCLib-log');
             var logId = JSON.parse(token).logId;
             var dat=JSON.parse(myData);
+
             var s=JSON.stringify(myData).replace(',', ', ').replace('{', '').replace('}', '');
+            __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(s);
             var split = s.split(",");
+            for(var i=0;i<=split.length;i++){
+                __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(split[i]+"\n");
+            }
             that.socket.sendSDP('clientLogPosted',logId,myData,(result, error) => {
                 if(result){
                     callback("Log posted successfully");
@@ -6773,6 +6771,7 @@ const Room = (altIo, altConnection, specInput) => {
             });
         };
     that.getFloorRequestedList = (callback = (arg) => {}) => {
+		//alert(arg);
     };
     
   if(__WEBPACK_IMPORTED_MODULE_0__Pair__["a" /* default */].browserEngineCheck() !== 'IE'){
@@ -6880,7 +6879,7 @@ const Room = (altIo, altConnection, specInput) => {
 
 const Stream = (altConnection, specInput) => {
     const spec = specInput;
-    const that = Object(__WEBPACK_IMPORTED_MODULE_0__Events__["a" /* EventDispatcher */])(spec);
+    const that = Object(__WEBPACK_IMPORTED_MODULE_0__Events__["b" /* EventDispatcher */])(spec);
 
 
     that.stream = spec.stream;    // Media Stream
@@ -7286,6 +7285,66 @@ const Stream = (altConnection, specInput) => {
             return element;
         }
     };
+
+    that.switchMicrophone = (stream,micId,callback) =>{
+        if(stream && stream.local===true && stream.pc && stream.pc.peerConnection){
+            const successStream = function(streamGot){
+                    __WEBPACK_IMPORTED_MODULE_4__utils_Logger__["a" /* default */].log("Got audio access from microphone:- "+micId);
+                    stream.pc.peerConnection.getSenders().forEach(function(sender){
+                        if(sender.track.kind === 'audio'){
+                            streamGot.getAudioTracks().forEach(function(track){
+                                sender.replaceTrack(track);
+                            });
+                        }
+                    });
+                    stream.stream.getAudioTracks().forEach(function(track){
+                        track.onended = null;
+                        track.stop();
+                    });
+                    stream.stream = streamGot;
+                    callback(stream);
+            };
+            const errorStream = function(errorGot){
+                __WEBPACK_IMPORTED_MODULE_4__utils_Logger__["a" /* default */].info("Error when switching microphone:- "+micId);
+                callback(errorGot);
+            };
+            stream.Connection.GetUserMedia({video: false, audio: {deviceId: {exact: micId}}},successStream,errorStream);
+        }else{
+            __WEBPACK_IMPORTED_MODULE_4__utils_Logger__["a" /* default */].info("Cannot switch microphone over invalid stream");
+            callback(false);
+        }
+    }
+
+    that.switchCamera = (stream,camId,callback) =>{
+        if(stream && stream.local===true && stream.pc && stream.pc.peerConnection){
+            const successStream = function(streamGot){
+                    __WEBPACK_IMPORTED_MODULE_4__utils_Logger__["a" /* default */].log("Got video access from camera:- "+camId);
+                    stream.pc.peerConnection.getSenders().forEach(function(sender){
+                        if(sender.track.kind === 'video'){
+                            streamGot.getVideoTracks().forEach(function(track){
+                                sender.replaceTrack(track);
+                            });
+                        }
+                    });
+                    stream.stream.getVideoTracks().forEach(function(track){
+                        track.onended = null;
+                        track.stop();
+                    });
+                    stream.stream = streamGot;
+                    callback(stream);
+
+            };
+            const errorStream = function(errorGot){
+              __WEBPACK_IMPORTED_MODULE_4__utils_Logger__["a" /* default */].info("Error when switching camera:- "+camId);
+              callback(errorGot);
+            };
+            stream.Connection.GetUserMedia({audio: false, video: {deviceId: {exact: camId}}},successStream,errorStream);
+        }else{
+            __WEBPACK_IMPORTED_MODULE_4__utils_Logger__["a" /* default */].info("Cannot switch camera over invalid stream");
+            callback(false);
+        }
+    }
+
     that.play = (elementID, optionsInput) => {
         const options = optionsInput || {};
         that.elementID = elementID;
@@ -7521,25 +7580,16 @@ const Stream = (altConnection, specInput) => {
          DON'T REMOVE THIS COMMENTED CODE
          MAY BE THIS PIECE OF CODE USE IN FUTURE WHEN RE-NEGOTIATION IS NEEDED FOR STREAM MUTE
           */
-
-        /*if (that.room && that.room.p2p) {
-            Logger.warning('Note! p2p streams don\'t support muteAudio/muteVideo');
-            callback('error');
-            return;
-        }
-
-        if (that.stream) {
-            for (let index = 0; index < that.stream.getVideoTracks().length; index += 1) {
-                const track = that.stream.getVideoTracks()[index];
-                track.enabled = !that.videoMuted;
+       /* if(that.stream && that.local){
+            const config = { muteStream: { audio: that.audioMuted, video: that.videoMuted } };
+            that.checkOptions(config, true);
+            if (that.pc) {
+                that.pc.updateSpec(config, callback);
             }
-        }
-
-        const config = { muteStream: { audio: that.audioMuted, video: that.videoMuted } };
-        that.checkOptions(config, true);
-        if (that.pc) {
-            that.pc.updateSpec(config, callback);
         }*/
+
+
+
 
 
 
@@ -7739,7 +7789,7 @@ Date	: 29/11/2017 07:14 PM
 
 
 /*
- * VideoPlayer represents a Licode video component that shows either a local or a remote video.
+ * VideoPlayer represents a video component that shows either a local or a remote video.
  * Ex.: var player = VideoPlayer({id: id, stream: stream, elementID: elementID});
  * A VideoPlayer is also a View component.
  */
@@ -21129,7 +21179,7 @@ __webpack_require__(163);
 const VcxRtc = {
   Logger: __WEBPACK_IMPORTED_MODULE_0__utils_Logger__["a" /* default */],
   Room: __WEBPACK_IMPORTED_MODULE_1__Room__["a" /* default */].bind(null, undefined, undefined),
-    LicodeEvent: __WEBPACK_IMPORTED_MODULE_2__Events__["b" /* LicodeEvent */],
+    Event: __WEBPACK_IMPORTED_MODULE_2__Events__["a" /* Event */],
     RoomEvent: __WEBPACK_IMPORTED_MODULE_2__Events__["d" /* RoomEvent */],
     StreamEvent: __WEBPACK_IMPORTED_MODULE_2__Events__["e" /* StreamEvent */],
     Stream: __WEBPACK_IMPORTED_MODULE_3__Stream__["a" /* default */].bind(null, undefined),
@@ -21139,6 +21189,7 @@ const VcxRtc = {
     Layout: __WEBPACK_IMPORTED_MODULE_7__views_Layout__["a" /* default */],
         disconnect: __WEBPACK_IMPORTED_MODULE_8__VcxQuickApi__["a" /* default */].disconnectRoom,
         getDevices:__WEBPACK_IMPORTED_MODULE_8__VcxQuickApi__["a" /* default */].getDevice,
+        switchMediaDevice:__WEBPACK_IMPORTED_MODULE_8__VcxQuickApi__["a" /* default */].switchMediaDevice,
         joinRoom:__WEBPACK_IMPORTED_MODULE_8__VcxQuickApi__["a" /* default */].joinRoom,
         listParticipants:__WEBPACK_IMPORTED_MODULE_8__VcxQuickApi__["a" /* default */].listParticipants,
         PublishStream:__WEBPACK_IMPORTED_MODULE_8__VcxQuickApi__["a" /* default */].publishStream,
@@ -21689,11 +21740,11 @@ Date	: 28/11/2017 11:14 AM
   // This package is to use socket library functions
  // This package is for manage console log.
 
- // This package is needed for managing licode events
+ // This package is needed for managing events
 const SocketEvent = ( type, specInput ) => {
-  const that = Object(__WEBPACK_IMPORTED_MODULE_3__Events__["b" /* LicodeEvent */])({ type });
+  const that = Object(__WEBPACK_IMPORTED_MODULE_3__Events__["a" /* Event */])({ type });
   that.args = specInput.args;
-  return that; // This is a object of Licode events handler
+  return that; // This is a object of events handler
 };
 
 /*
@@ -21701,7 +21752,7 @@ const SocketEvent = ( type, specInput ) => {
  * stream and identify the stream and where it should be drawn.
  */
 const Socket = (newIo) => {
-  const that = Object(__WEBPACK_IMPORTED_MODULE_3__Events__["a" /* EventDispatcher */])();
+  const that = Object(__WEBPACK_IMPORTED_MODULE_3__Events__["b" /* EventDispatcher */])();
   const defaultCallback = () => {};
   const messageBuffer = [];			// This is an array to store event message as a buffer.
 
@@ -21716,7 +21767,7 @@ const Socket = (newIo) => {
 
   let socket;
 
-  const emit = (type, ...args) => {           // Function that calls Licode Events' emit function
+  const emit = (type, ...args) => {           // Function that calls Events' emit function
     that.emit(SocketEvent(type, { args }));
   };
 
@@ -21970,7 +22021,7 @@ return new(e[["Active"].concat("Object").join("X")])("Microsoft.XMLHTTP")}catch(
 
 
 /*
- * AudioPlayer represents a Licode Audio component that shows either a local or a remote Audio.
+ * AudioPlayer represents a Audio component that shows either a local or a remote Audio.
  * Ex.: var player = AudioPlayer({id: id, stream: stream, elementID: elementID});
  * A AudioPlayer is also a View component.
  */
@@ -21995,7 +22046,7 @@ const AudioPlayer = (spec) => {
     // Audio tag
   that.audio = document.createElement('audio');
   that.audio.setAttribute('id', `stream${that.id}`);
-  that.audio.setAttribute('class', 'licode_stream');
+  that.audio.setAttribute('class', 'vcx_stream');
   that.audio.setAttribute('style', 'width: 100%; height: 100%; position: absolute');
   that.audio.setAttribute('autoplay', 'autoplay');
 
@@ -22019,7 +22070,7 @@ const AudioPlayer = (spec) => {
     // Container
     that.div = document.createElement('div');
     that.div.setAttribute('id', `player_${that.id}`);
-    that.div.setAttribute('class', 'licode_player');
+    that.div.setAttribute('class', 'vcx_player');
     that.div.setAttribute('style', 'width: 100%; height: 100%; position: relative; ' +
                               'overflow: hidden;');
 
@@ -22344,7 +22395,7 @@ const VcxRtcMap = () => {
 
 
 /*
- * AudioPlayer represents a Licode Audio component that shows either a local or a remote Audio.
+ * AudioPlayer represents a Audio component that shows either a local or a remote Audio.
  * Ex.: var player = AudioPlayer({id: id, stream: stream, elementID: elementID});
  * A AudioPlayer is also a View component.
  */
@@ -22584,6 +22635,17 @@ VcxQuickApi.getDevice = (callback) => {
             callback(dvc);
         });
     });
+}
+
+VcxQuickApi.switchMediaDevice = (stream,audioDeviceId,videoDeviceId,callback) => {
+    if(videoDeviceId && typeof videoDeviceId==='string'){
+        stream.switchCamera(stream,videoDeviceId,callback);
+    }else if(audioDeviceId && typeof audioDeviceId==='string'){
+        stream.switchMicrophone(stream,audioDeviceId,callback);
+    }else{
+        __WEBPACK_IMPORTED_MODULE_0__utils_Logger__["a" /* default */].info("Invalid Device Id");
+        callback(false);
+    }
 }
 
 ///////////Join Room/////////////
@@ -27311,4 +27373,4 @@ module.exports = "/* globals $$, jQuery, Elements, document, window, L */\r\n\r\
 
 /***/ })
 /******/ ])["default"];
-//# sourceMappingURL=vcxRtcLib.js.map
+//# sourceMappingURL=vcxRtc.js.map
