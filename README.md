@@ -1,12 +1,12 @@
 # quickApp VideoChat
 RTC (Real time communication) applications hosted on EnableX platform run natively on supported set of web browsers without any additional plugin downloads. 
 
-This basic video chat application generated using HTML,CSS,Bootstrap v4.0.0-alpha.6,JAVA Script,jQuery,Node V8.9.1 and VcxRtcLib.
+This basic video chat application generated using HTML,CSS,Bootstrap v4.0.0-alpha.6,JAVA Script,jQuery,Node V8.9.1 and VcxRtc.
 
 >The details of the supported set of web browser can be found in the EnableX architecture specification document.
 ## Important!
 
-When building an Node app [quickApp] with VcxRtcLib you need to make sure to include the updated VcxRtcLib.js polyfills for rtcpeerconnection and getusermedia otherwise your application will not work in web.
+When building an Node app [quickApp] with VcxRtc you need to make sure to include the updated VcxRtc.js polyfills for rtcpeerconnection and getusermedia otherwise your application will not work in web.
 
 ## Known Limitations
 
