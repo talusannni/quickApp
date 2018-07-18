@@ -20,11 +20,11 @@ You can see a demo of this sample running at [https://quickapp.enablex.io/] it i
 
 ### get your quickApp appId and apiKey from authorised person and also issue a roomID
 
-Before you can run this application by hosting it locally you need to modify `server/vcxconfig.js` there you need to include few mandatory fields like quickApp `appId` and `appKey` , `APPQDN of  your hosting enviorment` , `APPQDN hosting port` , `SSL key and certificate` .
-  >Seeting up APPQDN
+Before you can run this application by hosting it locally you need to modify `server/vcxconfig.js` there you need to include few mandatory fields like quickApp `appId` and `appKey` , `APP-FQDN of  your hosting enviorment` , `APP-FQDN hosting port` , `SSL key and certificate` .
+  >Seeting up APP-FQDN
         
-        > domain: "xyz.com", // APPQDN of  your hosting enviorment [accept either DNS Or IP]
-        > port  : "5004", //APPQDN of  your hosting port
+        > domain: "xyz.com", // APP-FQDN of  your hosting enviorment [accept either DNS Or IP]
+        > port  : "443", //APP-FQDN of  your hosting port
   >setting up SSL credentials
         
         > ssl_key: " ./../cert/xyz.key", // use the certificate ".key" [self signed or registered]
@@ -56,11 +56,11 @@ create Token, get post conference Call Detail Reports etc.
 For this  application [quickApp] we used below  mentioned API endpoints call.
 
 Note: details handling of server_Api endpoints are available under [. / vcxroom.js]
-  ##### https://api.vcloudx.com:5454/v1/rooms
+  ##### https://api.enablex.io/v1/rooms
     use to get all rooms details
-  ##### https://api.vcloudx.com:5454/v1/rooms/:roomId
+  ##### https://api.enablex.io/v1/rooms/:roomId
     use to get a specific room Details
-  ##### https://api.vcloudx.com:5454/v1/rooms/:roomId/tokens
+  ##### https://api.enablex.io/v1/rooms/:roomId/tokens
     use to create tokens
 ### Running end-to-end tests
 To get more help on the Please refer EnableX architecture specification document

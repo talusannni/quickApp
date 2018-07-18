@@ -8,8 +8,8 @@ vcxconfig.SERViCE={
     name: "VCloudX Quick Start", //Name of the Application [Change optional]
     version: "1.0.0", //Version [Change optional]
     path: "/v1", //Route [Default /v1]
-    domain: " ", // APPQDN of  your hosting enviorment [accept either DNS Or IP]
-    port  : " ", //APPQDN of  your hosting port
+    domain: " ", // FQDN of  your hosting enviorment [accept either DNS Or IP]
+    port  : " ", //FQDN of  your hosting port
     listen_ssl : true //SSL on/off key  [Default "true" ,Note: it is recomended to keep it "ture"]
 };
 
