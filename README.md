@@ -23,8 +23,8 @@ You can see a demo of this sample running at [https://quickapp.enablex.io/] it i
 Before you can run this application by hosting it locally you need to modify `server/vcxconfig.js` there you need to include few mandatory fields like quickApp `appId` and `appKey` , `APP-FQDN of  your hosting enviorment` , `APP-FQDN hosting port` , `SSL key and certificate` .
   >Seeting up APP-FQDN
         
-        > domain: "xyz.com", // APP-FQDN of  your hosting enviorment [accept either DNS Or IP]
-        > port  : "443", //APP-FQDN of  your hosting port
+        > domain: "xyz.com", // APP's FQDN or IP of  your hosting enviorment
+        > port  : "443", //hosting port of your APP's FQDN or IP  
   >setting up SSL credentials
         
         > ssl_key: " ./../cert/xyz.key", // use the certificate ".key" [self signed or registered]
