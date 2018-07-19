@@ -44,6 +44,7 @@ Before you can run this application by hosting it locally you need to modify `se
 snippet:
 >
 >vcxconfig.SERViCE={
+
 >    name: "VCloudX Quick Start", //Name of the Application [Change optional]
 
 >    version: "1.0.0", //Version [Change optional]
@@ -51,24 +52,35 @@ snippet:
 >    path: "/v1", //Route [Default /v1]
 
 >    domain: "loclhost", // FQDN of  your hosting enviorment [accept either DNS Or IP]
+
 >    port  : "4443", //FQDN of  your hosting port You need sudo permission if you want to use standard 443
+
 >    listen_ssl : true //SSL on/off key  [Default "true" ,Note: it is Required to keep it "ture"]
+
 > };
 
 >vcxconfig.Certificate={
+
 >    ssl_key: "../certs/server.key", // use the certificate ".key" [self signed or registered]
+
 >    ssl_cert : "../certs/server.crt", // use the certificate ".crt" [self signed or registered]
+
 >    sslCaCerts : [ ] // use the certificate CA[chain] [self signed or registered]
+
 >};
 
 >vcxconfig.SERVER_API_SERVER={
+
 >    host: 'api.enablex.io', // hosted VCX_Server_api DNS address []
+
 >    port: '5454', // hosted VCX_Server_api DNS port
+
 >};
 
 >vcxconfig.clientPath = "../client"; // UI files location
 
 > vcxconfig.APP_ID = #AppId // "5ae1ba761bda760cca4770a2"; // Enter the issued/authorized application ID
+
 > vcxconfig.APP_KEY = #AppKey //  "aHe3e4aduhuTyTaUyyyAyUyqy3aHyQupytyp"; // Enter the issued/authorized application key
 
 
