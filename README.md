@@ -87,45 +87,27 @@ snippet:
 > vcxconfig.APP_KEY = #AppKey //  "aHe3e4aduhuTyTaUyyyAyUyqy3aHyQupytyp"; // Enter the issued/authorized application key
 
 
+## Build
 
-You need to include few mandatory fields like quickApp `appId` and `appKey` , `APP-FQDN of  your hosting enviorment` , `APP-FQDN hosting port` , `SSL key and certificate` .
-  >Seeting up APP-FQDN
-        
-        > domain: "xyz.com", // APP's FQDN or IP of  your hosting enviorment
-        > port  : "443", //hosting port of your APP's FQDN or IP  
-  >setting up SSL credentials
-        
-        > ssl_key: " ./../cert/xyz.key", // use the certificate ".key" [self signed or registered]
-        > ssl_cert : "./../cert/xyz.crt", // use the certificate ".crt" [self signed or registered]
-        > sslCaCerts : [./../cert/xyz.ca-bundle] // use the certificate CA[chain] [self signed or registered]        
-  >Seeting up appId andappKey   
-    
-       > vcxconfig.APP_ID = "5b289848b0445b59155bf432";// Enter the issued/authorized application ID
-       > vcxconfig.APP_KEY = "2e9etaYamyPaXaXyJyHaeyLe4yeyLeHaeena"; // Enter the issued/authorized application key
-   
-    
-        
-        
+Run `npm install --save` to build the project. and The build artifacts will be stored in the `./node_modules` directory.
+
 ### Development server
 
 Run `node server.js` inside server.js or else use npm start  for startingup dev server. Navigate to `https://localhost:5004/`. The app will automatically reload if you change any of the source files.
 
+## Test time !!
+Point your browser to the DNSname:port  that you configured in vcxconfig.js. In our case :
+> https://localhost:4443
 
-## Build
+### Allow Access to Camera and Mic to start your first call
 
-Run `npm install --save` to build the project. and The build artifacts will be stored in the `./node_modules` directory.
+
 
 ### Basic set of server_api used
 >Rest API service meant to be called from Partner’s Application Server to provision video enabled 
 meeting rooms. API Access is given to each application partners develop. Server API is a Rest API 
 Service to carry out Provisioning Tasks for your Application on EnableX Infrastructure, such as manage Rooms, 
 create Token, get post conference Call Detail Reports etc.
-
-## Run!!
-Point your browser to the DNSname:port  that you configured in vcxconfig.js. In our case :
-> https://localhost:4443
-
-### Allow Access to Camera and Mic to start your first call
 
 
 
