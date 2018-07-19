@@ -34,8 +34,11 @@ For the deployment you would need to use your companies valid certificates and p
 
 There are various free sites that generate self-signed certificates. One of them you can use (You can always google it!)
 > https://www.sslchecker.com/csr/self_signed
+
 > Or 
+
 > https://www.akadia.com/services/ssh_test_certificate.html . You have self-signed certificate files named server.crt and server.key at the step 4 (Generating a Self-Signed Certificate). 
+
 Create a directory under your application directory quickApp 
 Copy your certificate files (.key and .crt) to the directory called certs.
 
