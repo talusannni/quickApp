@@ -21,7 +21,7 @@ You can see a demo of this sample running at [https://quickapp.enablex.io/] it i
 
 ## Pre-requisite 
 ### appId and apiKey 
-Please register to VCloudX to get AppId and AppKey. This can be done through the self-service portal from here, or contact support at here
+Please register to VCloudX to get AppId and AppKey. This can be done through the self-service portal, or contact support.
 Once you register with VCloudX and obtain the AppId and ApiKey, clone the repository from this link and follow following steps:
 
 ### Download the Application
@@ -30,7 +30,7 @@ make a sample directory e.g. quickApp and download/clone the repository:
 
 
 ### SSL Certificates 
-For the deployment you would need to use your companies valid certificates and point your application to use. But since this is a sample application and intent is to run on your local system, you would need to create a self-signed certificates.
+For the deployment you would need to use your compan's valid certificates and point your application to use. But since this is a sample application and intent is to run on your local system, you would need to create a self-signed certificates.
 
 There are various free sites that generate self-signed certificates. One of them you can use (You can always google it!)
 > https://www.sslchecker.com/csr/self_signed
