@@ -21,7 +21,7 @@ var options = {
         'volume': 0,
         'media': '',
         'loader': {
-            'show': true, 'url': 'https://i.imgur.com/8YsAmq3.gif', 'style': 'default', 'class': ''
+            'show': true, 'url': '../img/blank_stream.png', 'style': 'default', 'class': ''
         },
         'backgroundImg': 'https://static.pexels.com/photos/257360/pexels-photo-257360.jpeg'
     },
@@ -129,6 +129,9 @@ window.onload = function () {
             }
             if (success && success != null) {
                 room = success.room;
+                setTimeout(function () {
+                   window.location.href = '../';
+                },(1000*60*5));
                 setLiveStream(localStream);
                 for (var i = 0; i < success.streams.length; i++) {
                     room.subscribe(success.streams[i]);
