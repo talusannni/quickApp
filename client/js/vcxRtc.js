@@ -5222,6 +5222,8 @@ global import RTC stack Refewrence by including file from ./webrtc-stacks/* */
 
 let VcxRtcSessionId = 103;
 var getUserMediaDelayed;
+const that = {};
+that.deviceList = undefined;
 const browserEngineCheck = () => {
     let browser = 'none';
 
@@ -5245,6 +5247,109 @@ const browserEngineCheck = () => {
     return browser;
 };
 
+const processDevice = (deviceList) => {
+    var devices = {"cam":[],"mic":[]};
+    for(var count=0;count<deviceList.length;count++){
+        if(deviceList[count].kind === "audioinput"){
+            devices.mic.push(deviceList[count]);
+        }else if(deviceList[count].kind === "videoinput"){
+            devices.cam.push(deviceList[count]);
+        }
+    }
+    return devices;
+}
+
+const checkNewDevice = (dvcList) =>{
+    if(that.deviceList===undefined){
+        return undefined;
+    }else{
+        var devices = {"cam":[],"mic":[]};
+        for(var camC in dvcList.cam){
+            var chkFlag = false;
+            for(var camS in that.deviceList.cam){
+                if(dvcList.cam[camC].deviceId === that.deviceList.cam[camS].deviceId){
+                    chkFlag = true;
+                }
+            }
+            if(chkFlag===false){
+                devices.cam.push(dvcList.cam[camC]);
+            }
+        }
+        for(var micC in dvcList.mic){
+            var chkFlag = false;
+            for(var micS in that.deviceList.mic){
+                if(dvcList.mic[micC].deviceId === that.deviceList.mic[micS].deviceId){
+                    chkFlag = true;
+                }
+            }
+            if(chkFlag===false){
+                devices.mic.push(dvcList.mic[micC]);
+            }
+        }
+       if(devices.cam.length ===0 && devices.mic.length===0){
+            return undefined;
+       }else{
+            that.deviceList = dvcList;
+            return devices;
+       }
+    }
+}
+
+const mediaDeviceUpdate = (callback) =>{
+    if(browserEngineCheck() ==='safari'){
+        setInterval(function(){
+            getDeviceList(function (dvL) {
+                if(that.deviceList===undefined){
+                    that.deviceList = dvL;
+                }else{
+                    var newDvList = checkNewDevice(dvL);
+                    if(newDvList!==undefined){
+                        callback(newDvList);
+                    }
+                }
+            });
+        },3000);
+    }else{
+        navigator.mediaDevices.ondevicechange = function(event) {
+            getDeviceList(function (dvL) {
+                if(that.deviceList===undefined){
+                    that.deviceList = dvL;
+                }else{
+                    var newDvList = checkNewDevice(dvL);
+                    if(newDvList!==undefined){
+                        callback(newDvList);
+                    }
+                }
+            });
+        }
+    }
+}
+const getMediaPermission = (callback) => {
+    navigator.getUserMedia(
+        { audio: true, video: true },
+        function(stream) {
+            callback();
+        },
+        function(err) {
+            __WEBPACK_IMPORTED_MODULE_3__utils_Logger__["a" /* default */].error(`Cannot get device list: ${err}`);
+        }
+    );
+}
+const getList = (callback) =>{
+    navigator.mediaDevices.enumerateDevices().then(function(dv){
+        callback(dv);
+    }).catch(function(err){
+        __WEBPACK_IMPORTED_MODULE_3__utils_Logger__["a" /* default */].error(`Cannot get device list: ${err}`);
+    });
+}
+const getDeviceList = (callback) => {
+    getMediaPermission(function(){
+        getList(function (deviceList) {
+            var dvc = processDevice(deviceList);
+            callback(dvc);
+        });
+    });
+}
 const buildPair = (specInput) => {
     let that = {};
     const spec = specInput;
@@ -5402,7 +5507,7 @@ const GetUserMedia = (config, callback = () => {}, error = () => {}) => {
         getUserMedia(config, callback, error);
     }
 };
-const Connection = { GetUserMedia, buildPair, browserEngineCheck};
+const Connection = { GetUserMedia, buildPair, browserEngineCheck , mediaDeviceUpdate , getDeviceList};
 
 /* harmony default export */ __webpack_exports__["a"] = (Connection);
 
@@ -5540,10 +5645,12 @@ const Room = (altIo, altConnection, specInput) => {
   that.awaitedParticipants = new Map();
   that.ableToPublishStatus= undefined;
   that.roomJson=undefined;
+  that.clientId = undefined;
+
   let remoteStreams = that.remoteStreams;
   let localStreams = that.localStreams;
   var locStrm=undefined;
-  var currentRoom=undefined;
+  that.hardMuteRoom = false;
  /*Descirption: Private functions removeStream used to release a strem from a socket
    * Used in: socketOnRemoveStream
    * */
@@ -5737,7 +5844,12 @@ const Room = (altIo, altConnection, specInput) => {
 
     stream.pc.createOffer(true);
   };
-
+  that.notifyDeviceUpdate = () => {
+      __WEBPACK_IMPORTED_MODULE_0__Pair__["a" /* default */].mediaDeviceUpdate(function(res){
+          const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'user-media-device-list-change', message: res});
+          that.dispatchEvent(evt);
+      });
+  }
   const createLocalStreamVcxRtcConnection = (streamInput, options) => {
     const stream = streamInput;
     stream.pc = that.Connection.buildPair(getVcxRtcConnectionOptions(stream, options));
@@ -5757,6 +5869,7 @@ const Room = (altIo, altConnection, specInput) => {
   const socketOnAddStream = (arg) => {
     const stream = Object(__WEBPACK_IMPORTED_MODULE_3__Stream__["a" /* default */])(that.Connection, { streamID: arg.id,
       local: false,
+      clientId : arg.clientId,
       audio: arg.audio,
       video: arg.video,
       data: arg.data,
@@ -5779,21 +5892,20 @@ const Room = (altIo, altConnection, specInput) => {
     const userName = arg.name;
     const userRole = arg.role;
     const userPermissions = arg.permissions;
-    const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["f" /* UserEvent */])({type: 'user-connected',name:userName,role:userRole,permission:userPermissions});
-    that.dispatchEvent(evt);
 	const user ={name:arg.name,permissions:arg.permissions,role:arg.role,user_ref:arg.user_ref};
 	that.userList.set(arg.clientId,user);
+    const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["f" /* UserEvent */])({type: 'user-connected',name:userName,role:userRole,permission:userPermissions,user:user});
+    that.dispatchEvent(evt);
     };
   const userDisConnect = (arg) =>{
 	  const userName = arg.name;
       const userRole = arg.role;
-      const userPermissions = arg.permissions;
+      const userPermissions = arg.permissions
+	   that.userList.delete(arg.clientId);
       const evt =Object(__WEBPACK_IMPORTED_MODULE_1__Events__["f" /* UserEvent */])({type: 'user-disconnected',name:userName,role:userRole,permission:userPermissions});
       that.dispatchEvent(evt);
-	  that.userList.delete(arg.clientId);
   };
   const userSubcribe = (arg) =>{
-        //cnsole.log("user connected evt data---------"+arg);
         const userName = arg.name;
         const userRef = arg.user_ref;
         const userRole = arg.role;
@@ -5865,19 +5977,7 @@ const Room = (altIo, altConnection, specInput) => {
     if (arg.streamID) {
       const stream = remoteStreams.get(arg.streamID);
       if (stream && !stream.failed) {
-        if(stream.ifAudio()){
-            for (var index = 0; index < stream.getAudioTracks().length; index += 1) {
-                const track = stream.getAudioTracks()[index];
-                __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info('New Stream settings', track.getSettings());
-            }
-        }
-        else if(stream.ifVideo()){
-            for (var index = 0; index < stream.getVideoTracks().length; index += 1) {
-                const track = stream.getVideoTracks()[index];
-                __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info('New Stream settings', track.getSettings());
-            }
-        }
-        const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["e" /* StreamEvent */])({ type: 'bandwidth-dropped',
+        const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["e" /* StreamEvent */])({ type: 'bandwidth-updated',
           stream,
           msg: arg.message,
           bandwidth: arg.bandwidth });
@@ -6050,12 +6150,14 @@ const Room = (altIo, altConnection, specInput) => {
     __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info('Publishing to Client Controller Normally, is createOffer', options.createOffer);
     const constraints = createSdpConstraints('media_engine', stream, options);
     constraints.minVideoBW = options.minVideoBW;
+      constraints.maxVideoBW = options.maxVideoBW;
     constraints.scheme = options.scheme;
 
     socket.sendSDP('publish', constraints, undefined, (id, error) => {
       if(typeof id != "object"){
 		  populateStreamFunctions(id, stream, error, undefined);
 			  createLocalStreamVcxRtcConnection(stream, options);
+			  stream.clientId  = that.clientId;
 			  callback(id);
 			  }else{
 				  callback('local');
@@ -6206,11 +6308,11 @@ const Room = (altIo, altConnection, specInput) => {
     const floorRequest = (arg) =>{
        __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info("Incoming request for floor has arrived");
         that.cControlReq=arg;
-		that.cCrequest.push(arg);
+		//that.cCrequest.push(arg);
 		var a = JSON.stringify(arg);
 		__WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(JSON.parse(a).clientId+"::::"+JSON.parse(a).name);		
 		that.cCrequest.push(arg);
-		const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'floor_request',users: arg});
+		const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'floor-requested',users: arg});
     that.dispatchEvent(floorReqEvt);
     };
 
@@ -6222,14 +6324,13 @@ const Room = (altIo, altConnection, specInput) => {
        __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(lstrm.getID()+"going to publish");
 		var lstrm  = locStrm; 
 		var a = JSON.stringify(arg);
-		const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'floor_request_granted',users: arg});
+		const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'floor-granted',users: arg});
         that.dispatchEvent(floorReqEvt);
-      __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(lstrm.getID()+"going to publish------>@sohom");
     };
 
    const floorNotGrnat = (arg) =>{
         __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(arg.mess);
-		const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'floor_request_not_granted',users: arg});
+		const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'floor-denied',users: arg});
         that.dispatchEvent(floorReqEvt);
 	   that.ableToPublishStatus=undefined;
    }
@@ -6240,7 +6341,7 @@ const Room = (altIo, altConnection, specInput) => {
           __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(stream.getID()+"::::"+id);
 	  that.unpublish(stream,function(arg){
 		  if(arg == true){
-			  const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'floor_request_released',users: arg});
+			  const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'release-floor',users: arg});
 			  that.dispatchEvent(floorReqEvt);
               __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info("stream has been un-published");
      		that.ableToPublishStatus=undefined;	
@@ -6254,16 +6355,31 @@ const Room = (altIo, altConnection, specInput) => {
 	 
    }
    const onHardmuteOne = (arg) =>{
-	   __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info("-----------------------mute one------------------");
        __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(arg);
-	   const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'hard_mute',users: arg});
+	   const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'hard-mute',users: arg});
 	   that.dispatchEvent(floorReqEvt);
    }
-   const onHardmuteAll = (arg) =>{
-	   __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info("-----------------------mute all------------------");
-       __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(arg);
-	   const floorReqEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'hard_mute',users: arg});
-	   that.dispatchEvent(floorReqEvt);
+   const onHardUnmuteRoom = (arg) =>{
+       if(arg.status===false){
+           that.hardMuteRoom = arg.status;
+           that.localStreams.forEach(function(stream,id){
+               stream.hardAudioMuted = arg.status;
+               stream.unmuteAudio();
+           });
+           const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'hard-unmute-room',message: "room hard unmuted"});
+           that.dispatchEvent(evt);
+       }
+   }
+   const onHardmuteRoom = (arg) =>{
+     if(arg.status===true){
+         that.hardMuteRoom = arg.status;
+         that.localStreams.forEach(function(stream,id){
+             stream.hardAudioMuted = arg.status;
+             stream.muteAudio();
+         });
+         const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'hard-mute-room',message: "room hard muted"});
+         that.dispatchEvent(evt);
+     }
    }
 	const onRoomAwaited = (arg) =>{
 
@@ -6295,7 +6411,7 @@ const Room = (altIo, altConnection, specInput) => {
 	}
 	
     const onRoomConnected = (response) =>{
-        let stream;
+      let stream;
       const streamList = [];
       const streams = response.streams || [];
       const roomId = response.id;
@@ -6308,6 +6424,7 @@ const Room = (altIo, altConnection, specInput) => {
       that.state = CONNECTED;
       spec.defaultVideoBW = response.defaultVideoBW;
       spec.maxVideoBW = response.maxVideoBW;
+      that.clientId = response.clientId;
 
       // 2- Retrieve list of streams
       const streamIndices = Object.keys(streams);
@@ -6337,41 +6454,99 @@ const Room = (altIo, altConnection, specInput) => {
 
    //method to listen hard mute for single user
    const hardMuteMethod = (arg) =>{
-	   if(arg.status == "ON"){
-		document.getElementById("u_staus").innerHTML = arg.status;
-		document.getElementById('mute_modal').style.display='block';		 
-	   }else if(arg.status == "OFF"){
-		 document.getElementById("um_staus").innerHTML = arg.status;
-		document.getElementById('unmute_modal').style.display='block';
-	   }
    }
    
-   //method to listen hard mute for all user
-   const hardMuteRoomMethod = (arg) =>{
-	   if(arg.status == "ON"){
-		    var a= JSON.stringify(currentRoom);
-			var b= JSON.parse(a);
-            that.roomJson.settings['mute_status']=true;
-             document.getElementById("u_staus").innerHTML = arg.status;
-             document.getElementById('mute_modal').style.display='block';
-	   }else if(arg.status == "OFF"){
-		  var a= JSON.stringify(currentRoom);
-		  var b= JSON.parse(a);
-		  that.roomJson.settings['mute_status']=false;
-		   document.getElementById("um_staus").innerHTML = arg.status;
-		   document.getElementById('unmute_modal').style.display='block';
-	   }
-   }
-   //method to listen switch room mode
+     //method to listen hard mute for all user
+     const hardMuteRoomMethod = (arg) =>{
+     }
+     //method to listen switch room mode
       const switchRoomMode = (arg) =>{
-		  alert(arg.msg);
-		  if(that.roomJson.settings.mode === "lecture"){
-			  that.roomJson.settings.mode = "group";
-		  }else if(that.roomJson.settings.mode === "group"){
-			  that.roomJson.settings.mode = "lecture";
-		  }
-          __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].log("room switched to  "+that.roomJson.settings.mode+" mode");
 	  }
+
+    const onHardMuteAudio = (arg) =>{
+        if(arg.result === 0){
+            that.localStreams.forEach(function(stream,id){
+                stream.hardAudioMuted = true;
+                stream.muteAudio();
+                const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["e" /* StreamEvent */])({ type: 'hardmute-user-audio',message: "hard muted audio"});
+                stream.dispatchEvent(evt);
+            });
+
+        }
+    }
+    const onHardUnmuteAudio = (arg) =>{
+        if(arg.result === 0){
+            that.localStreams.forEach(function(stream,id){
+                stream.hardAudioMuted = false;
+                stream.unmuteAudio();
+                const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["e" /* StreamEvent */])({ type: 'hardunmute-user-audio',message: "hard unmuted audio"});
+                stream.dispatchEvent(evt);
+            });
+
+        }
+    }
+    const onHardMuteVideo = (arg) =>{
+        if(arg.result === 0){
+            that.localStreams.forEach(function(stream,id){
+                stream.hardVideoMuted = true;
+                stream.muteVideo();
+                const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["e" /* StreamEvent */])({ type: 'hardmute-user-video',message: "hard muted video"});
+                stream.dispatchEvent(evt);
+            });
+
+        }
+    }
+    const onShareStarted = (arg) => {
+        const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'share-started',message: "screen share started"});
+        that.dispatchEvent(evt);
+    }
+    const onShareStopped = (arg) => {
+        const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'share-stopped',message: "screen share stopped"});
+        that.dispatchEvent(evt);
+    }
+    const onHardUnmuteVideo = (arg) =>{
+        if(arg.result === 0){
+            that.localStreams.forEach(function(stream,id){
+                stream.hardVideoMuted = false;
+                stream.unmuteVideo();
+                const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["e" /* StreamEvent */])({ type: 'hardunmute-user-video',message: "hard unmuted video"});
+                stream.dispatchEvent(evt);
+            });
+
+        }
+    }
+    const onUserAudioMuted = (arg) => {
+        that.remoteStreams.forEach(function(value,key){
+          if(value.clientId === arg.clientId){
+              const evt2 = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["e" /* StreamEvent */])({ type: 'user-audio-muted', stream: value});
+              value.dispatchEvent(evt2);
+          }
+        });
+    }
+    const onUserAudioUnmuted= (arg) =>{
+        that.remoteStreams.forEach(function(value,key){
+            if(value.clientId === arg.clientId){
+                const evt2 = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["e" /* StreamEvent */])({ type: 'user-audio-unmuted', stream: value});
+                value.dispatchEvent(evt2);
+            }
+        });
+    }
+    const onUserVideoMuted= (arg) =>{
+        that.remoteStreams.forEach(function(value,key){
+            if(value.clientId === arg.clientId){
+                const evt2 = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["e" /* StreamEvent */])({ type: 'user-video-muted', stream: value});
+                value.dispatchEvent(evt2);
+            }
+        });
+    }
+    const onUserVideoUnmuted= (arg) =>{
+        that.remoteStreams.forEach(function(value,key){
+            if(value.clientId === arg.clientId){
+                const evt2 = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["e" /* StreamEvent */])({ type: 'user-video-unmuted', stream: value});
+                value.dispatchEvent(evt2);
+            }
+        });
+    }
   // It publishes the stream provided as argument. Once it is added it throws a
   // StreamEvent("stream-added").
   //*****
@@ -6423,22 +6598,27 @@ const Room = (altIo, altConnection, specInput) => {
   };
 
   const onRoomRecordStarted = (response) =>{
-      const connectEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'room-record-on'});
+      const connectEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'room-record-on',message: "Room Recording Started" });
       that.dispatchEvent(connectEvt);
   }
   const onRoomRecordStopped = (response) =>{
-      const connectEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'room-record-off'});
+      const connectEvt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'room-record-off',message: "Room Recording Stopped"});
       that.dispatchEvent(connectEvt);
   }
 
-  that.startRecordRoom = (callback = () => {}) => {
+  const onNewActiveTalker = (res) =>{
+      const evt = Object(__WEBPACK_IMPORTED_MODULE_1__Events__["d" /* RoomEvent */])({ type: 'active-talker', message: res.activeList});
+      that.dispatchEvent(evt);
+  }
+
+  that.startRecord = (callback = () => {}) => {
       that.startRecording(undefined,callback);
   }
-  that.stopRecordRoom = (callback = () => {}) => {
+  that.stopRecord = (callback = () => {}) => {
       that.stopRecording(undefined,callback);
   }
-    //request floor
-    that.chairControl = (callback = () => {}) => {
+    //request floor (old chairControl)
+    that.requestFloor = (callback = () => {}) => {
 							  
         that.socket.sendEvent('requestFloor',(result, error) => {
             if (result === null) {
@@ -6451,8 +6631,38 @@ const Room = (altIo, altConnection, specInput) => {
 
         });
     };
-   //grant floor
-    that.chairControlgrantOrReject = (options,stats,callback = () => {}) => {
+   //grant floor (grantFloor,relaseFloor,denyFloor)
+    that.grantFloor = (options,callback = () => {}) => {
+		var stats = "grantFloor";
+        that.socket.sendSDP('processFloorRequest',options,stats,(result, error) => {
+            if (result === null) {
+                __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].error('Error on floor grant', error);
+                callback(undefined, error);
+                return;
+            }else{
+                callback(result);
+            }
+
+        });
+    };
+     //---
+	that.denyFloor = (options,callback = () => {}) => {
+		var stats = "denyFloor";
+        that.socket.sendSDP('processFloorRequest',options,stats,(result, error) => {
+            if (result === null) {
+                __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].error('Error on floor grant', error);
+                callback(undefined, error);
+                return;
+            }else{
+                callback(result);
+            }
+
+        });
+    };
+     //---
+	 
+    that.relaseFloor = (options,callback = () => {}) => {
+		var stats = "releaseFloor";
         that.socket.sendSDP('processFloorRequest',options,stats,(result, error) => {
             if (result === null) {
                 __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].error('Error on floor grant', error);
@@ -6495,8 +6705,8 @@ const Room = (altIo, altConnection, specInput) => {
         });
     };
 	
-	//chairControl mute single client
-    that.chairControlMuteOne = (clientId,callback = () => {}) => {
+	//chairControl mute single client (old chairControlMuteOne)
+    that.muteOne = (clientId,callback = () => {}) => {
 							  
         that.socket.sendParamEvent('muteUser',clientId,(result, error) => {
             if (result === null) {
@@ -6513,7 +6723,7 @@ const Room = (altIo, altConnection, specInput) => {
     };
 	
 	//chairControl un-mute single client
-    that.chairControlUnMuteOne = (clientId,callback = () => {}) => {
+    that.unMuteOne = (clientId,callback = () => {}) => {
 							  
         that.socket.sendParamEvent('unMuteUser',clientId,(result, error) => {
             if (result === null) {
@@ -6558,6 +6768,10 @@ const Room = (altIo, altConnection, specInput) => {
                   return;
               }
               __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info('Started recording');
+			  if(success.retVal === "OK"){
+				  delete success.retVal;
+				  success["result"] = 0;
+			  }
               callback(success,error);
           });
       }
@@ -6691,7 +6905,26 @@ const Room = (altIo, altConnection, specInput) => {
       }
     }
   };
-
+  that.hardMute = (callback = () => {}) => {
+      that.socket.sendEvent('room-muted',(result) => {
+          callback(result);
+      });
+  }
+  that.hardUnmute = (callback = () => {}) => {
+      that.socket.sendEvent('room-unmuted',(result) => {
+          callback(result);
+      });
+  }
+  that.setActiveTalker = (numTalker,callback) =>{
+      that.socket.emitEvent(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].RoomEvent.set_active_talker,{numTalkers:numTalker},(result) => {
+          callback(result);
+      });
+  }
+    that.getActiveTalker = (callback) =>{
+        that.socket.sendEvent(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].RoomEvent.get_active_talker,(result) => {
+            callback(result);
+        });
+    }
   that.getStreamStats = (stream, callback = () => {}) => {
     if (!socket) {
       return 'Error getting stats - no socket';
@@ -6757,22 +6990,40 @@ const Room = (altIo, altConnection, specInput) => {
             var dat=JSON.parse(myData);
 
             var s=JSON.stringify(myData).replace(',', ', ').replace('{', '').replace('}', '');
-            __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(s);
-            var split = s.split(",");
-            for(var i=0;i<=split.length;i++){
-                __WEBPACK_IMPORTED_MODULE_7__utils_Logger__["a" /* default */].info(split[i]+"\n");
-            }
+            
             that.socket.sendSDP('clientLogPosted',logId,myData,(result, error) => {
                 if(result){
-                    callback("Log posted successfully");
+					if(result){
+						var res ={"result": 0,
+						"message": "Log posted successfully" };
+					    callback(res);
+}
+                    
                 }else{
-                    callback("Bugs in client log posting");
+					var res ={"result": 1340, 
+					"message": "Error in posing log" }
+                    callback( res);
                 }
             });
         };
     that.getFloorRequestedList = (callback = (arg) => {}) => {
 		//alert(arg);
     };
+	
+	//get the loacl(calling) user deatil
+	that.whoAmI = (callback = (arg) => {}) =>{
+	 var currntUserDetails=undefined;	
+	   that.userList.forEach(findMe);
+		   function findMe(item, index) {
+					if(index === that.clientId){
+						console.log(item+"::"+index);
+						currntUserDetails=item;
+					}
+		}
+		callback(currntUserDetails);
+	};
+
+	
     
   if(__WEBPACK_IMPORTED_MODULE_0__Pair__["a" /* default */].browserEngineCheck() !== 'IE'){
       that.on('room-disconnected', clearAll);
@@ -6798,13 +7049,27 @@ const Room = (altIo, altConnection, specInput) => {
       socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].SocketEvent.floor_not_granted,socketEventToArgs.bind(null,floorNotGrnat));
       socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].SocketEvent.floor_released,socketEventToArgs.bind(null,floorRelease));
       socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].UserEvent.user_awaited,socketEventToArgs.bind(null,onUserAwaited));
+
       socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].RoomEvent.room_awaited,socketEventToArgs.bind(null,onRoomAwaited));
       socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].RoomEvent.room_connected,socketEventToArgs.bind(null,onRoomConnected));
       socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].RoomEvent.room_record_on,socketEventToArgs.bind(null,onRoomRecordStarted));
       socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].RoomEvent.room_record_off,socketEventToArgs.bind(null,onRoomRecordStopped));
+      socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].RoomEvent.new_active_talker,socketEventToArgs.bind(null,onNewActiveTalker));
+      socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].RoomEvent.hard_mute_audio,socketEventToArgs.bind(null,onHardMuteAudio));
+      socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].RoomEvent.hard_unmute_audio,socketEventToArgs.bind(null,onHardUnmuteAudio));
+      socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].RoomEvent.hard_mute_video,socketEventToArgs.bind(null,onHardMuteVideo));
+      socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].RoomEvent.hard_unmute_video,socketEventToArgs.bind(null,onHardUnmuteVideo));
+      socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].RoomEvent.share_started,socketEventToArgs.bind(null,onShareStarted));
+      socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].RoomEvent.share_stopped,socketEventToArgs.bind(null,onShareStopped));
+
+      socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].StreamEvent.user_audio_muted,socketEventToArgs.bind(null,onUserAudioMuted));
+      socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].StreamEvent.user_audio_unmuted,socketEventToArgs.bind(null,onUserAudioUnmuted));
+      socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].StreamEvent.user_video_muted,socketEventToArgs.bind(null,onUserVideoMuted));
+      socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].StreamEvent.user_video_unmuted,socketEventToArgs.bind(null,onUserVideoUnmuted));
 	  
 	  socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].SocketEvent.hard_mute,socketEventToArgs.bind(null,onHardmuteOne));
-	  socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].SocketEvent.hard_mute_room,socketEventToArgs.bind(null,onHardmuteAll));
+	  socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].SocketEvent.hard_mute_room,socketEventToArgs.bind(null,onHardmuteRoom));
+      socket.on(__WEBPACK_IMPORTED_MODULE_8__vcxEventProperties__["a" /* default */].SocketEvent.hard_unmute_room,socketEventToArgs.bind(null,onHardUnmuteRoom));
   }else{
     if( document.getElementById('WebrtcEverywherePluginId')===null )
       that.installPlugin();
@@ -6881,7 +7146,7 @@ const Stream = (altConnection, specInput) => {
     const spec = specInput;
     const that = Object(__WEBPACK_IMPORTED_MODULE_0__Events__["b" /* EventDispatcher */])(spec);
 
-
+    that.config =  specInput;
     that.stream = spec.stream;    // Media Stream
     that.url = spec.url;          // URL - if a stream is initiated from a URL
     that.recording = spec.recording;  // If a stream is initiated from a Recorded File.
@@ -6897,8 +7162,11 @@ const Stream = (altConnection, specInput) => {
     that.extensionId = spec.extensionId;  // Chrome Extension ID for Screen Share App
     that.desktopStreamId = spec.desktopStreamId;  // Stream ID for Screen Share
     that.recordingId = spec.recordingId; // Archived File ID of recorded stream. Used for playback
+    that.clientId = spec.clientId;
     that.audioMuted = false;      // If audio track has been muted
     that.videoMuted = false;      // If video track has been muted
+    that.hardAudioMuted = false;
+    that.hardVideoMuted = false;
     that.attributes = spec.attributes;  // Additional Information about Stream, defined as {var: value, var:value}
     that.Connection = altConnection === undefined ? __WEBPACK_IMPORTED_MODULE_3__Pair__["a" /* default */] : altConnection;
 
@@ -7087,7 +7355,7 @@ const Stream = (altConnection, specInput) => {
             if ((spec.audio || spec.video || spec.screen) || spec.url === undefined) {
                 __WEBPACK_IMPORTED_MODULE_4__utils_Logger__["a" /* default */].info('Note! Requested access to local media');
                 let videoOpt = (spec.video)?true:false;
-				 
+
                 if (videoOpt === true || spec.screen === undefined) {
                     videoOpt = videoOpt === true ? {} : videoOpt;
                     if (that.videoSize !== undefined) {
@@ -7443,11 +7711,11 @@ const Stream = (altConnection, specInput) => {
     /************************************
     //Author:Sohom
     //Description:To take a snapshot of video frame and to return a canvas object.
-    // Public function: getFrame()
+    // Public function: getVideoFrameCanvas()
     //
      ************************************/
 
-    const getFrame = () => {
+    const getVideoFrameCanvas = () => {
         if (that.player !== undefined && that.stream !== undefined) {
             const video = that.player.video;
             const style = document.defaultView.getComputedStyle(video);
@@ -7493,7 +7761,7 @@ const Stream = (altConnection, specInput) => {
      ************************************/
 
     that.getVideoFrameURL = (format) => {
-        const canvas = getFrame();
+        const canvas = getVideoFrameCanvas();
         if (canvas !== null) {
             if (format) {
                 return canvas.toDataURL(format);
@@ -7507,12 +7775,12 @@ const Stream = (altConnection, specInput) => {
     /************************************
      * Author:Sohom
      * Description:
-    // Public function: getVideoFrame()
+    // Public function: getVideoFrameImage()
     // To take a snapshot of video frame and to return an Image in raw format.
     ************************************/
 
-    that.getVideoFrame = () => {
-        const canvas = getFrame();
+    that.getVideoFrameImage = () => {
+        const canvas = getVideoFrameCanvas();
         if (canvas !== null) {
             return canvas.getContext('2d').getImageData(10, 10, canvas.width, canvas.height);
         }
@@ -7559,39 +7827,100 @@ const Stream = (altConnection, specInput) => {
     // Public function: checkOptions()
     // Check inconsistensy in Options/Attributes
     // ************************************
-
-    const muteStream = (callback = () => {}) => {
+    const muteStreamAudio = (callback = () => {}) => {
+        if(that.stream && that.local) {
+            if (that.audioMuted === true) {
+                if (that.pc && that.stream && that.pc.peerConnection && that.pc.peerConnection.getSenders) {
+                    that.pc.peerConnection.getSenders().forEach(function (sender) {
+                        if (sender.track.kind === 'audio') {
+                            sender.replaceTrack(null);
+                        }
+                    });
+                    that.stream.getAudioTracks().forEach(function (track) {
+                        track.onended = null;
+                        track.stop();
+                    });
+                    callback(true);
+                } else {
+                    callback(false);
+                }
+            } else if (that.audioMuted === false) {
+                if(that.Connection && that.local && that.pc && that.pc.peerConnection && that.pc.peerConnection.getSenders){
+                    const successCallback = function(streamGot){
+                        that.pc.peerConnection.getSenders().forEach(function(sender){
+                            if(sender.track===null || sender.track.kind === 'audio'){
+                                streamGot.getAudioTracks().forEach(function(track){
+                                    sender.replaceTrack(track);
+                                });
+                            }
+                        });
+                        that.stream = streamGot;
+                        callback(true);
+                    };
+                    const errorCallback = function (errorGot) {
+                        __WEBPACK_IMPORTED_MODULE_4__utils_Logger__["a" /* default */].info(errorGot);
+                        callback(errorGot);
+                    }
+                    that.Connection.GetUserMedia({audio:that.config.audio,video:that.config.video},successCallback,errorCallback);
+                }else{
+                    callback(false);
+                }
+            }
+        }else{
+            __WEBPACK_IMPORTED_MODULE_4__utils_Logger__["a" /* default */].warning("Error! remote streams can't be muted");
+            callback(false);
+        }
+    }
+    const muteStreamVideo = (callback = () => {}) => {
         if(that.stream && that.local){
-            for (let index = 0; index < that.stream.getAudioTracks().length; index += 1) {
-                const track = that.stream.getAudioTracks()[index];
-                track.enabled = !that.audioMuted;
+            if(that.videoMuted === true){
+                if(that.pc && that.stream && that.pc.peerConnection && that.pc.peerConnection.getSenders){
+                    that.stream.getVideoTracks()[0].enabled = false;
+                    setTimeout(function(){
+                        that.pc.peerConnection.getSenders().forEach(function(sender){
+                            if(sender.track.kind === 'video'){
+                                sender.replaceTrack(null);
+                            }
+                        });
+                        that.stream.getVideoTracks().forEach(function(track){
+                                track.onended = null;
+                                track.stop();
+                        });
+                    },1000);
+                    callback(true);
+                }else{
+                    callback(false);
+                }
+            }else if(that.videoMuted === false){
+                if(that.Connection && that.local && that.pc && that.pc.peerConnection && that.pc.peerConnection.getSenders){
+                    const successCallback = function(streamGot){
+                        that.pc.peerConnection.getSenders().forEach(function(sender){
+                            if(sender.track===null || sender.track.kind === 'video'){
+                                streamGot.getVideoTracks().forEach(function(track){
+                                    sender.replaceTrack(track);
+                                });
+                            }
+                        });
+                        that.stream = streamGot;
+                        callback(true);
+                    };
+                    const errorCallback = function (errorGot) {
+                        __WEBPACK_IMPORTED_MODULE_4__utils_Logger__["a" /* default */].info(errorGot);
+                        callback(errorGot);
+                    }
+                    that.Connection.GetUserMedia({audio:that.config.audio,video:that.config.video},successCallback,errorCallback);
+                }else{
+                    callback(false);
+                }
+
             }
-            for (let index = 0; index < that.stream.getVideoTracks().length; index += 1) {
-                const track = that.stream.getVideoTracks()[index];
-                track.enabled = !that.videoMuted;
-            }
-            callback(true);
+
+
         }else{
             __WEBPACK_IMPORTED_MODULE_4__utils_Logger__["a" /* default */].warning("Error! remote streams can't be muted");
             callback(false);
         }
     };
-         /*
-         DON'T REMOVE THIS COMMENTED CODE
-         MAY BE THIS PIECE OF CODE USE IN FUTURE WHEN RE-NEGOTIATION IS NEEDED FOR STREAM MUTE
-          */
-       /* if(that.stream && that.local){
-            const config = { muteStream: { audio: that.audioMuted, video: that.videoMuted } };
-            that.checkOptions(config, true);
-            if (that.pc) {
-                that.pc.updateSpec(config, callback);
-            }
-        }*/
-
-
-
-
-
 
     // ************************************
     // Public function: muteAudio()
@@ -7599,11 +7928,25 @@ const Stream = (altConnection, specInput) => {
     // ************************************
 
     that.muteAudio = (callback = () => {}) => {
-        that.audioMuted = true;
-        muteStream(callback);
+            that.audioMuted = true;
+            muteStreamAudio(callback);
+            that.sendEvent("user-audio-muted");
     };
 
 
+    that.sendEvent = (type) =>{
+        if(that.room){
+            that.room.socket.sendEvent(type,(result) => {
+            });
+        }
+    }
+    that.sendMessage = (type,options,callback = () => {}) =>{
+        if(that.room){
+            that.room.socket.emitEvent(type,options,(result) => {
+                callback(result);
+            });
+        }
+    }
 
     // ************************************
     // Public function: unmuteAudio()
@@ -7611,8 +7954,11 @@ const Stream = (altConnection, specInput) => {
     // ************************************
 
     that.unmuteAudio = (callback = () => {}) => {
-        that.audioMuted = false;
-        muteStream(callback);
+        if(that.hardAudioMuted === false) {
+            that.audioMuted = false;
+            muteStreamAudio(callback);
+            that.sendEvent("user-audio-unmuted");
+        }
     };
 
     // ************************************
@@ -7623,11 +7969,30 @@ const Stream = (altConnection, specInput) => {
     that.toggleAudio = (callback = () => {}) => {
         if(!that.audioMuted){that.audioMuted = true;}
         else{that.audioMuted = false;}
-        muteStream(callback);
+        muteStreamAudio(callback);
     };
 
 
-
+    that.hardMuteAudio = (callback = () => {}) => {
+        if(that.room && !that.local){
+            that.sendMessage("hardmute-user-audio",{clientId:that.clientId});
+        }
+    }
+    that.hardUnmuteAudio = (callback = () => {}) => {
+        if(that.room && !that.local){
+            that.sendMessage("hardunmute-user-audio",{clientId:that.clientId});
+        }
+    }
+    that.hardMuteVideo = (callback = () => {}) => {
+        if(that.room && !that.local){
+            that.sendMessage("hardmute-user-video",{clientId:that.clientId});
+        }
+    }
+    that.hardUnmuteVideo = (callback = () => {}) => {
+        if(that.room && !that.local){
+            that.sendMessage("hardunmute-user-video",{clientId:that.clientId});
+        }
+    }
     // ************************************
     // Public function: muteVideo()
     // To mute Video at local end-point. Callback can be defined at application level
@@ -7635,7 +8000,8 @@ const Stream = (altConnection, specInput) => {
 
     that.muteVideo = (callback = () => {}) => {
         that.videoMuted = true;
-        muteStream(callback);
+        muteStreamVideo(callback);
+        that.sendEvent("user-video-muted");
     };
 
     // ************************************
@@ -7644,8 +8010,11 @@ const Stream = (altConnection, specInput) => {
     // ************************************
 
     that.unmuteVideo = (callback = () => {}) => {
-        that.videoMuted = false;
-        muteStream(callback);
+        if(that.hardAudioMuted === false) {
+            that.videoMuted = false;
+            muteStreamVideo(callback);
+            that.sendEvent("user-video-unmuted");
+        }
     };
 
 
@@ -20347,6 +20716,7 @@ const VcxEventProperties = {};
 VcxEventProperties.SocketEvent = {};
 VcxEventProperties.RoomEvent = {};
 VcxEventProperties.UserEvent = {};
+VcxEventProperties.StreamEvent = {};
 
 VcxEventProperties.SocketEvent.onAddStream='onAddStream';
 VcxEventProperties.SocketEvent.onRemoveTrack='onRemoveTrack';
@@ -20385,9 +20755,27 @@ VcxEventProperties.RoomEvent.room_connected='room-connected';
 VcxEventProperties.RoomEvent.room_awaited='room-awaited';
 VcxEventProperties.RoomEvent.room_record_on='room-record-on';
 VcxEventProperties.RoomEvent.room_record_off='room-record-off';
+VcxEventProperties.RoomEvent.new_active_talker='newActiveList';
+VcxEventProperties.RoomEvent.hard_mute_audio='hardmute-user-audio';
+VcxEventProperties.RoomEvent.hard_unmute_audio='hardunmute-user-audio';
+VcxEventProperties.RoomEvent.hard_mute_video='hardmute-user-video';
+VcxEventProperties.RoomEvent.hard_unmute_video='hardunmute-user-video';
+VcxEventProperties.RoomEvent.get_active_talker='getNumberOfTalker';
+VcxEventProperties.RoomEvent.set_active_talker='setNumberOfTalker';
+VcxEventProperties.RoomEvent.hard_unmute_video='hardunmute-user-video';
+VcxEventProperties.RoomEvent.share_started='shareStarted';
+VcxEventProperties.RoomEvent.share_stopped='shareStopped';
+
+VcxEventProperties.StreamEvent.user_audio_muted ='user-audio-muted';
+VcxEventProperties.StreamEvent.user_audio_unmuted='user-audio-unmuted';
+VcxEventProperties.StreamEvent.user_video_muted ='user-video-muted';
+VcxEventProperties.StreamEvent.user_video_unmuted='user-video-unmuted';
 
 VcxEventProperties.SocketEvent.hard_mute='hardMute';
-VcxEventProperties.SocketEvent.hard_mute_room='hardMuteRoom';
+VcxEventProperties.SocketEvent.hard_mute_room='room-muted';
+VcxEventProperties.SocketEvent.hard_unmute_room='room-unmuted';
+
+
 VcxEventProperties.SocketEvent.switched_room='roomSwitched';
 /* harmony default export */ __webpack_exports__["a"] = (VcxEventProperties);
 
@@ -21190,6 +21578,7 @@ const VcxRtc = {
         disconnect: __WEBPACK_IMPORTED_MODULE_8__VcxQuickApi__["a" /* default */].disconnectRoom,
         getDevices:__WEBPACK_IMPORTED_MODULE_8__VcxQuickApi__["a" /* default */].getDevice,
         switchMediaDevice:__WEBPACK_IMPORTED_MODULE_8__VcxQuickApi__["a" /* default */].switchMediaDevice,
+        notifyDeviceUpdate:__WEBPACK_IMPORTED_MODULE_8__VcxQuickApi__["a" /* default */].notifyDeviceUpdate,
         joinRoom:__WEBPACK_IMPORTED_MODULE_8__VcxQuickApi__["a" /* default */].joinRoom,
         listParticipants:__WEBPACK_IMPORTED_MODULE_8__VcxQuickApi__["a" /* default */].listParticipants,
         PublishStream:__WEBPACK_IMPORTED_MODULE_8__VcxQuickApi__["a" /* default */].publishStream,
@@ -21826,14 +22215,12 @@ const Socket = (newIo) => {
       socket.io.engine.transport.ws.onerror = ( errorEvent ) => {
       };
     that.socket = socket;
+
     socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].UserEvent.user_awaited,emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].UserEvent.user_awaited ));
     socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].UserEvent.user_joined,emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].UserEvent.user_joined ));
     socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.room_connected,emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.room_connected ));
-    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.room_awaited,emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.room_awaited ));
-    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.room_record_on,emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.room_record_on ));
-    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.room_record_off,emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.room_record_off ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.new_active_talker,emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.new_active_talker ));
     socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.onAddStream,emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.onAddStream ));
-    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.media_engine_connecting, emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.media_engine_connecting ));
     socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.signaling_message_peer, emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.signaling_message_peer ) );
     socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.publish_me, emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.publish_me ));
     socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.unpublish_me, emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.unpublish_me ));
@@ -21841,26 +22228,37 @@ const Socket = (newIo) => {
 	socket.on(__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.onRemoveTrack, emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.onRemoveTrack ));
     // We receive an event of new data in one of the streams
     socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.onDataStream, emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.onDataStream ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.room_awaited,              emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.room_awaited ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.room_record_on,            emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.room_record_on ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.room_record_off,           emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.room_record_off ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.hard_mute_audio,           emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.hard_mute_audio ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.hard_unmute_audio,         emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.hard_unmute_audio ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.hard_mute_video,           emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.hard_mute_video ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.hard_unmute_video,         emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.hard_unmute_video ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.share_started,             emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.share_started ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.share_stopped,             emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].RoomEvent.share_stopped ));
 
-    // We receive an event of new data in one of the streams
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].StreamEvent.user_audio_muted,        emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].StreamEvent.user_audio_muted ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].StreamEvent.user_audio_unmuted,      emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].StreamEvent.user_audio_unmuted ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].StreamEvent.user_video_muted,        emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].StreamEvent.user_video_muted ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].StreamEvent.user_video_unmuted,      emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].StreamEvent.user_video_unmuted ));
+
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.media_engine_connecting, emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.media_engine_connecting ));
     socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.onUpdateAttributeStream, emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.onUpdateAttributeStream ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.onRemoveStream,          emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.onRemoveStream ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.user_connected,          emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.user_connected ));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.user_disconnected,       emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.user_disconnected));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.user_subscribed,         emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.user_subscribed));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_requested,         emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_requested));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_granted,           emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_granted));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_not_granted,       emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_not_granted));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_released,          emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_released));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.hard_mute,               emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.hard_mute));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.hard_mute_room,          emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.hard_mute_room));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.hard_unmute_room,        emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.hard_unmute_room));
+    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.switched_room,           emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.switched_room));
 
-    // We receive an event of a stream removed from the room
-    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.onRemoveStream, emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.onRemoveStream ));
-//VcxEventProperties.SocketEvent.user_connecte
-    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.user_connected, emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.user_connected ));
-    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.user_disconnected, emit.bind( that, __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.user_disconnected));
-    socket.on(__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.user_subscribed, emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.user_subscribed));
-      socket.on(__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.user_subscribed, emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.user_subscribed));
-      socket.on(__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_requested, emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_requested));
-      socket.on(__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_granted, emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_granted));
-      socket.on(__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_not_granted, emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_not_granted));
-	  socket.on(__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_released, emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.floor_released));
-	  socket.on(__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.hard_mute, emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.hard_mute));
-      socket.on(__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.hard_mute_room, emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.hard_mute_room));
-	  socket.on(__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.switched_room, emit.bind(that,__WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.switched_room));
-    // The socket has disconnected
-    socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.disconnect, ( reason ) => {
+      socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.disconnect, ( reason ) => {
       __WEBPACK_IMPORTED_MODULE_2__utils_Logger__["a" /* default */].debug( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.disconnect, that.id, reason );
       if ( closeCode !== WEBSOCKET_NORMAL_CLOSURE ) {
         that.state = that.RECONNECTING;
@@ -21912,13 +22310,8 @@ const Socket = (newIo) => {
 	
     socket.on( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.reconnect_error, ( err ) => {
       __WEBPACK_IMPORTED_MODULE_2__utils_Logger__["a" /* default */].debug( __WEBPACK_IMPORTED_MODULE_0__vcxEventProperties_js__["a" /* default */].SocketEvent.reconnect_error + ', id:', that.id, ', error:', err.message );
-    });    
-		/* Ends hadling different socket events which are called on socket */
+    });
 
-		/*socket.on(VcxEventProperties.SocketEvent.floor_requested, () =>{
-		   console.log("floor request");
-            socket.emit(VcxEventProperties.SocketEvent.floor_requested);
-        });*/
     // First message with the token to the connected socket
     that.sendMessage( 'token', token, ( response ) => {
       that.state = that.CONNECTED;
@@ -22599,42 +22992,12 @@ VcxQuickApi.disconnectRoom = (room) => {
     }
 }
 /////////Get Device List//////////////
-const getMediaPermission = (callback) => {
-    navigator.getUserMedia(
-        { audio: true, video: true },
-        function(stream) {
-            callback();
-        },
-        function(err) {
-            __WEBPACK_IMPORTED_MODULE_0__utils_Logger__["a" /* default */].error(`Cannot get device list: ${err}`);
-        }
-    );
-}
-const getList = (callback) =>{
-    navigator.mediaDevices.enumerateDevices().then(function(dv){
-        callback(dv);
-    }).catch(function(err){
-        __WEBPACK_IMPORTED_MODULE_0__utils_Logger__["a" /* default */].error(`Cannot get device list: ${err}`);
-    });
-}
-const processDevice = (deviceList) => {
-    var devices = {"cam":[],"mic":[]};
-    for(var count=0;count<deviceList.length;count++){
-        if(deviceList[count].kind === "audioinput"){
-            devices.mic.push(deviceList[count]);
-        }else if(deviceList[count].kind === "videoinput"){
-            devices.cam.push(deviceList[count]);
-        }
-    }
-    return devices;
-}
 VcxQuickApi.getDevice = (callback) => {
-    getMediaPermission(function(){
-        getList(function (deviceList) {
-            var dvc = processDevice(deviceList);
-            callback(dvc);
-        });
-    });
+    __WEBPACK_IMPORTED_MODULE_1__Pair__["a" /* default */].getDeviceList(callback);
+}
+
+VcxQuickApi.notifyDeviceUpdate = (roomHandle) =>{
+    roomHandle.notifyDeviceUpdate();
 }
 
 VcxQuickApi.switchMediaDevice = (stream,audioDeviceId,videoDeviceId,callback) => {
@@ -22761,25 +23124,6 @@ VcxQuickApi.sendMessage = (stream,data) => {
         stream.sendData(data);
     }
 }
-////////////////Start Audio /////////////////
-VcxQuickApi.StartAudio = (stream, callback) => {
-    if(stream && stream.unmuteAudio){
-        stream.unmuteAudio(function(res){
-            callback(res);
-        });
-    }else{
-        __WEBPACK_IMPORTED_MODULE_0__utils_Logger__["a" /* default */].warning("Error! Invalid stream object");
-        callback(false);
-    }
-}
-////////////////Start Audio /////////////////
-VcxQuickApi.StartRecord = (room,callback) => {
-    if(room){
-        room.startRecordRoom(function(success,error){
-            callback(success,error);
-        });
-    }
-}
 ////////////////startScreenShare/////////////////
 VcxQuickApi.startScreenShare = (streamInput,room, callback) => {
     var localStream;
@@ -22825,48 +23169,6 @@ const startShare = (streamInput,callback) =>{
     var stream = VcxQuickApi.publishStream('', config, onAccessSuccess, onAccessError);
     return stream;
 }
-////////////////StartVideo/////////////////
-VcxQuickApi.StartVideo = (stream, callback) => {
-    if(stream && stream.unmuteVideo){
-        stream.unmuteVideo(function(res){
-            callback(res);
-        });
-    }else{
-        __WEBPACK_IMPORTED_MODULE_0__utils_Logger__["a" /* default */].warning("Error! Invalid stream object");
-        callback(false);
-    }
-}
-////////////////StopAudio//////////////////
-VcxQuickApi.StopAudio = (stream, callback) => {
-    if(stream && stream.muteAudio){
-        stream.muteAudio(function(res){
-            callback(res);
-        });
-    }else{
-        __WEBPACK_IMPORTED_MODULE_0__utils_Logger__["a" /* default */].warning("Error! Invalid stream object");
-        callback(false);
-    }
-}
-////////////////StopRecord/////////////////
-VcxQuickApi.StopRecord = (room,callback) => {
-    if(room){
-        room.stopRecordRoom(function(success,error){
-            callback(success,error);
-        });
-    }
-}
-////////////////StopVideo/////////////////
-VcxQuickApi.StopVideo = (stream, callback) => {
-    if(stream && stream.muteVideo){
-        stream.muteVideo(function(res){
-            callback(res);
-        });
-    }else{
-        __WEBPACK_IMPORTED_MODULE_0__utils_Logger__["a" /* default */].warning("Error! Invalid stream object");
-        callback(false);
-    }
-}
-///////////////////////////////////////////////
 /* harmony default export */ __webpack_exports__["a"] = (VcxQuickApi);
 
 /***/ }),
@@ -27373,4 +27675,4 @@ module.exports = "/* globals $$, jQuery, Elements, document, window, L */\r\n\r\
 
 /***/ })
 /******/ ])["default"];
-//# sourceMappingURL=vcxRtc.js.map
+//# sourceMappingURL=VcxRtc.js.map

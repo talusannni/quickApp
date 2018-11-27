@@ -3,6 +3,7 @@
 * Description: This is the basic calling environment */
 var localStream = null;
 var username = null;
+var room;
 var options = {
     id: 'vcx_1001',
     attachMode: '',
@@ -16,12 +17,12 @@ var options = {
         'height': '400px',
         'width': '400px',
         'minHeight': '120px',
-        'minWidth': '120px',
+        'minWidth': '160px',
         'aspectRatio': '',
         'volume': 0,
         'media': '',
         'loader': {
-            'show': true, 'url': '../img/blank_stream.png', 'style': 'default', 'class': ''
+            'show': false, 'url': 'https://i.imgur.com/8YsAmq3.gif', 'style': 'default', 'class': ''
         },
         'backgroundImg': 'https://static.pexels.com/photos/257360/pexels-photo-257360.jpeg'
     },
@@ -55,8 +56,9 @@ var options = {
 };
 window.onload = function () {
     var config = {audio: true, video: true, data: true, videoSize: [640, 480, 640, 480], options: options};
-    localStream = VcxRtc.Stream(config);
+    // localStream = EnxRtc.EnxStream(config);
     var countStream = 0;
+
     var localStreamId = null;
     var setLiveStream = function (stream) {
         stream.addEventListener('stream-data', function (e) {
@@ -73,10 +75,14 @@ window.onload = function () {
             document.getElementsByClassName('multi_video_container_div')[0].appendChild(newStreamDiv);
             options.player.height = "120px";
             options.player.width = "120px";
+            // options.player.loader.show = false;
+            options.player.loader.class = "small_loader";
             stream.show('liveStream_' + countStream, options);
             countStream++;
         }
         else {
+            options.player.loader.class = "";
+            options.player.loader.show = false;
             stream.show('local_vedio_div', options);
         }
 
@@ -113,38 +119,67 @@ window.onload = function () {
 
     }
     createToken(createDataJson(window.location.href), function (response) {
-        console.log(response);
         var responseData = JSON.parse(response);
         var token = responseData.token;
-        var room = VcxRtc.Room({token: token});
-
-        localStream.addEventListener('media-access-denied', function (event) {
-            console.log(event);
-        });
-
-
-        localStream = VcxRtc.joinRoom(token, config, function (success, error) {
+        var ATList = null;
+        localStream = EnxRtc.joinRoom(token, config, function (success, error) {
             if (error && error != null) {
 
             }
             if (success && success != null) {
                 room = success.room;
-                setTimeout(function () {
-                   window.location.href = '../';
-                },(1000*60*5));
+                var ownId = success.publishId;
                 setLiveStream(localStream);
                 for (var i = 0; i < success.streams.length; i++) {
                     room.subscribe(success.streams[i]);
                 }
+                room.addEventListener('active-talkers-updated', function (event) {
+                    ATList = event.message.activeList;
+                    var video_player_len = document.querySelector('.multi_video_container_div').childNodes;
+                    if (event.message && event.message !== null && event.message.activeList && event.message.activeList !== null) {
+
+                        if (ATList.length == video_player_len.length) {
+                            return;
+                        }
+                        else
+                        {
+                            document.querySelector('.multi_video_container_div').innerHTML ="";
+                            for (stream in room.remoteStreams.getAll())
+                            {
+                                var st = room.remoteStreams.getAll()[stream];
+                                for (j = 0; j < ATList.length; j++) {
+                                    if (ATList[j].streamId == st.getID()) {
+                                          setLiveStream(st);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    console.log("Active Talker List :- " + JSON.stringify(event));
+                });
                 room.addEventListener('stream-subscribed', function (streamEvent) {
-                    console.log('Subscribed to your stream OK');
-                    var stream = streamEvent.stream;
-                    setLiveStream(stream);
+                    var stream = (streamEvent.data && streamEvent.data.stream) ?  streamEvent.data.stream : streamEvent.stream;
+                    for (k=0; k< ATList.length ; k++) {
+                        if (ATList[k].streamId == stream.getID()) {
+                            setLiveStream(stream);
+                        }
+                    }
                 });
+                room.addEventListener("active-talker-data-in", function (data) {
+                    console.log("active-talker-data-in" + data);
+                    var obj = {
+                        'msg': data.message.message,
+                        'timestamp': data.message.timestamp,
+                        'username': data.message.from
+                    };
+                    plotChat(obj);
+                });
+
+
                 room.addEventListener("stream-removed", function (event) {
-
-
+                    console.log(event);
                 });
+
             }
         });
 

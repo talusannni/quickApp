@@ -1,8 +1,4 @@
 var vcxconfig={};
-/*Author: Sohom[sohom.h@vcloudx.com]
-* Description: The mother configuration/properties file.
-*               [Notes: It needs to be updated everytime before deployment as per the environment]
-*               */
 
 vcxconfig.SERViCE={
     name: "VCloudX Quick Start", //Name of the Application [Change optional]
