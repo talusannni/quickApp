@@ -1,8 +1,22 @@
+///////////////////////////////////////////////////////
+//
+// File: vcxroom.js
+// This file does RestAPI Call to communicate with EnableX Server API
+//
+// Last Updated: 29-11-2018
+// Reformat, Indentation, Inline Comments
+//
+/////////////////////////////////////////////////////
+
 var http = require('http')
 var fs = require('fs')
 var vcxconfig = require('./vcxconfig')
 var vcxutil = require('./vcxutil')
 var vcxroom = {};
+
+
+
+// HTTP Request Header Creation
 
 var options = {
     port: vcxconfig.SERVER_API_SERVER.port,
@@ -15,6 +29,10 @@ var options = {
         'Authorization': 'Basic ' + vcxutil.getBasicAuthToken()
     }
 }
+
+
+// Function: To get Token for a Room
+
 vcxroom.getToken = function (details, callback) {
     var rooms = {};
     options.path = '/v1/rooms/' + details.roomId + '/tokens';
@@ -23,11 +41,17 @@ vcxroom.getToken = function (details, callback) {
         'Content-Type': 'application/json',
         'Authorization': 'Basic ' + vcxutil.getBasicAuthToken()
     };
+
     vcxutil.connectServer(options, JSON.stringify(details), function (data) {
         callback(data);
     });
 
 }
+
+
+
+// Function: To get a list of Rooms
+
 vcxroom.getAllRooms = function (callback) {
     var rooms = {};
     options.path = '/v1/rooms/';
@@ -35,8 +59,12 @@ vcxroom.getAllRooms = function (callback) {
     vcxutil.connectServer(options, null, function (data) {
         callback(data);
     });
-
 }
+
+
+
+// Function: To get information of a Room
+
 vcxroom.getRoom = function (roomName, callback) {
     var rooms = {};
     options.path = '/v1/rooms/' + roomName;
@@ -53,5 +81,7 @@ vcxroom.getRoom = function (roomName, callback) {
     });
 
 }
+
+
 var module = module || {};
 module.exports = vcxroom;

@@ -1,3 +1,14 @@
+///////////////////////////////////////////////////////
+//
+// File: vcxutil.js
+// This file contans utility functions to initiate RestAPI Calls
+//
+// Last Updated: 29-11-2018
+// Reformat, Indentation, Inline Comments
+//
+/////////////////////////////////////////////////////
+
+
 var btoa = require('btoa');
 var http = require('http');
 var https = require('https');
@@ -6,12 +17,20 @@ var log = require('../util/logger/logger').logger;
 var logger = log.getLogger('AppApi');
 var vcxutil = {};
 
+
+
+// Function: To create basic authentication header using APP ID and APP KEY
+
 vcxutil.getBasicAuthToken = function () {
     var APP_ID = vcxconfig.APP_ID;
     var APP_KEY = vcxconfig.APP_KEY;
     var authorizationBasic = btoa(APP_ID + ':' + APP_KEY);
     return authorizationBasic;
 }
+
+
+
+// Function: To connect to Enablex Server API Service
 
 vcxutil.connectServer = function (options, data, callback) {
     logger.info("REQ URI:- " + options.method + " " + options.host + ":" + options.port + options.path);
@@ -30,5 +49,6 @@ vcxutil.connectServer = function (options, data, callback) {
     else
         request.end(data);
 }
+
 var module = module || {};
 module.exports = vcxutil;

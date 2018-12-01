@@ -1,29 +1,56 @@
+///////////////////////////////////////////////////////
+//
+// Application: Quick App
+// Version: 1.0.0
+// The sample quickAPI demonstrates the use of APIs for EnableX platform.
+// The main motivation behind this application is to demonstrate usage of APIs and
+// allow developers to ramp up on app by hosting on their own devices instead of
+// directly using servers.
+//
+// Released: Nov 26, 2018
+//
+// File: config.js
+// Service Configuration File, need to be modified as needed.
+//
+/////////////////////////////////////////////////////
+
+
 var vcxconfig={};
 
 vcxconfig.SERViCE={
-    name: "VCloudX Quick Start", //Name of the Application [Change optional]
-    version: "1.0.0", //Version [Change optional]
-    path: "/v1", //Route [Default /v1]
-    domain: " ", // FQDN of  your hosting enviorment [accept either DNS Or IP]
-    port  : " ", //FQDN of  your hosting port
-    listen_ssl : true //SSL on/off key  [Default "true" ,Note: it is recomended to keep it "ture"]
+    name: "EnableX Quick Start App",                // Name of the App
+    version: "1.0.0",                               // Version
+    path: "/v1",                                    // EnableX Server API Version Route to access
+    domain: "yourdomain.com",                       // Domain / Sub-Domain to host this Service
+    port  : "4443",                                 // Port No. of this Service
+    listen_ssl : true                               // Enable SSL. Set always to "true"
 };
+
+
+
+// SSL Certificate (Self Signed or Registered)
 
 vcxconfig.Certificate={
-    ssl_key: " ", // use the certificate ".key" [self signed or registered]
-    ssl_cert : " ", // use the certificate ".crt" [self signed or registered]
-    sslCaCerts : [ ] // use the certificate CA[chain] [self signed or registered]
+    ssl_key: "../cert/yourdomain.key",               // Path to .key file
+    ssl_cert : "../cert/yourdomain.crt",             // Path to .crt file
+    sslCaCerts : ["../cert/yourdomain.ca-bundle"]    // Path to CA[chain]
 };
+
+
+
+// Enbalex Server API Infomration
 
 vcxconfig.SERVER_API_SERVER={
-    host: 'api.vcloudx.com', // hosted VCX_Server_api DNS address []
-    port: '5454', // hosted VCX_Server_api DNS port
+    host: 'api-dev.vcloudx.com',                    // FQDN of Service
+    port: '',                                       // PORT of Service (If specified by EnableX)
 };
 
-vcxconfig.clientPath = "../client"; // UI files location
+vcxconfig.APP_ID    = "";               // APP ID to access Server API
+vcxconfig.APP_KEY   = "";   // APP KEY to access Server API
 
-vcxconfig.APP_ID = " "; // Enter the issued/authorized application ID
-vcxconfig.APP_KEY = " "; // Enter the issued/authorized application key
+
+
+vcxconfig.clientPath = "../client";                 // Client End Point UI Route
 
 var module = module || {};
 module.exports = vcxconfig;

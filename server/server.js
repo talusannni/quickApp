@@ -1,7 +1,14 @@
-/*Author:Sohom
-* Modified:15.02.2018
-* Description:An application based on VCX API
-* */
+///////////////////////////////////////////////////////
+//
+// File: server.js
+// This is the Service File - executable using node command
+//
+// Created: 18-02-2018
+// Last Updated: 29-11-2018
+// Reformat, Indentition, Inline Comments
+//
+/////////////////////////////////////////////////////
+
 var express = require('express')
 var https = require('https')
 var http = require('http')
@@ -13,10 +20,10 @@ var vcxroom = require('./vcxroom')
 var vcxconfig = require('./vcxconfig')
 var bodyParser = require('body-parser')
 
-/*
-*Author:[Sohom]sohom.h@vcloudx.com
-* Description: Initalization of the basic HTTPS server.[Ref:vcxconfig.js]
-* */
+
+
+// Initialization of basic HTTP / HTTPS Service
+
 var server;
 
 if (vcxconfig.SERViCE.listen_ssl === true) {
@@ -34,12 +41,24 @@ if (vcxconfig.SERViCE.listen_ssl === true) {
 } else {
     server = http.createServer(app);
 }
+
 var port = normalizePort(vcxconfig.SERViCE.port);
+
+
+// Start the Service
+
 app.set('port', port);
 server.listen(port);
-console.log("server listen on port" + port);
+
+
+
+console.log("Server started. Listening on Port " + port);
 server.on('error', onError);
 server.on('listening', onListening);
+
+
+
+// Utility Function: Sanitizing Configured Port No.
 
 function normalizePort(val) {
     var port = parseInt(val, 10);
@@ -53,6 +72,9 @@ function normalizePort(val) {
 
     return false;
 }
+
+
+// Exception Handler Function
 
 function onError(error) {
     if (error.syscall !== 'listen') {
@@ -76,6 +98,10 @@ function onError(error) {
     }
 }
 
+
+
+// Function: To confirm Service is listening on the configured Port
+
 function onListening() {
     var addr = server.address();
     var bind = typeof addr === 'string'
@@ -83,6 +109,7 @@ function onListening() {
         : 'port ' + addr.port;
     debug('Listening on ' + bind);
 };
+
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({     // to support URL-encoded bodies
@@ -93,11 +120,11 @@ app.use(bodyParser.urlencoded({     // to support URL-encoded bodies
 app.use(morgan('dev'));
 app.use(express.static(vcxconfig.clientPath));
 
-/*
-*Author:[Sohom]sohom.h@vcloudx.com
-* Description: Routes to get all rooms
-*              using server api[Ref:vcxconfig.js]
-* */
+
+
+// Application Server Route Definitions - These functions communicate with EnableX Server API
+// Route: To get liist of all Rooms in your Application
+
 app.get('/getAllRooms', function (req, res) {
 
     vcxroom.getAllRooms(function (data) {
@@ -105,13 +132,12 @@ app.get('/getAllRooms', function (req, res) {
         res.send(data);
     });
 });
-/*
-*Author:[Sohom]sohom.h@vcloudx.com
-* Description: Routes to get a room based on ID
-*              using server api[Ref:vcxconfig.js]
-* */
-app.get('/getRoom/:roomName', function (req, res) {
 
+
+
+// Route: To get information of a given room.
+
+app.get('/getRoom/:roomName', function (req, res) {
     var room = req.params.roomName;
     vcxroom.getRoom(room, function (data) {
         res.status(200);
@@ -119,10 +145,14 @@ app.get('/getRoom/:roomName', function (req, res) {
     });
 });
 
+
+
+// Route: To get Token for a Room
+
 app.post('/createToken/', function (req, res) {
     vcxroom.getToken(req.body, function (data) {
         res.status(200);
         res.send(data);
     });
 });
-
+``
