@@ -16,6 +16,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "log4js": "*"
+    "log4js": "*",
+    "http": "*",
+    "express": "*",
+    "btoa": "*",
+    "morgan": "*"
   }
 }
