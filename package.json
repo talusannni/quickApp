@@ -8,18 +8,18 @@
       "start": "node ./server/server.js"
   },
   "devDependencies": {
-    "http": "*",
-    "express": "*",
-    "btoa": "*",
-    "morgan": "*"
+    "http": "^0.0.0",
+    "express": "^4.16.2",
+    "btoa": "^1.1.2",
+    "morgan": "^1.9.0"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "log4js": "*",
-    "http": "*",
-    "express": "*",
-    "btoa": "*",
-    "morgan": "*"
+    "log4js": "^1.0.1",
+    "http": "^0.0.0",
+    "express": "^4.16.2",
+    "btoa": "^1.1.2",
+    "morgan": "^1.9.0"
   }
 }
