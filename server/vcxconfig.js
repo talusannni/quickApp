@@ -31,8 +31,8 @@ vcxconfig.SERViCE={
 // SSL Certificate (Self Signed or Registered)
 
 vcxconfig.Certificate={
-    ssl_key: "../cert/27728153_svideox.herokuapp.com.key",               // Path to .key file
-    ssl_cert : "../cert/27728153_svideox.herokuapp.com.crt"             // Path to .crt file
+    ssl_key: "cert/27728153_svideox.herokuapp.com.key",               // Path to .key file
+    ssl_cert : "cert/27728153_svideox.herokuapp.com.crt"             // Path to .crt file
 };
 
 
