@@ -49,7 +49,7 @@ vcxconfig.APP_KEY   = "4e4y8abyVySaPysyey8yueNaMeWeJaue2ute";   // APP KEY to ac
 
 
 
-vcxconfig.clientPath = "client";                 // Client End Point UI Route
+vcxconfig.clientPath = "../client";                 // Client End Point UI Route
 
 var module = module || {};
 module.exports = vcxconfig;
