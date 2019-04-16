@@ -42,7 +42,8 @@ if (vcxconfig.SERViCE.listen_ssl === true) {
     server = http.createServer(app);
 }
 
-var port = normalizePort(vcxconfig.SERViCE.port);
+const PORT = process.env.PORT || 4443;
+var port = normalizePort(PORT);
 
 
 // Start the Service
