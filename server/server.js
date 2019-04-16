@@ -155,4 +155,3 @@ app.post('/createToken/', function (req, res) {
         res.send(data);
     });
 });
-``
