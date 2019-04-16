@@ -21,7 +21,7 @@ vcxconfig.SERViCE={
     name: "vdo",                // Name of the App
     version: "1.0.0",                               // Version
     path: "/v1",                                    // EnableX Server API Version Route to access
-    domain: "localhost",                       // Domain / Sub-Domain to host this Service
+    domain: "0.0.0.0",                       // Domain / Sub-Domain to host this Service
     port  : "4443",                                 // Port No. of this Service
     listen_ssl : true                               // Enable SSL. Set always to "true"
 };
