@@ -2,7 +2,7 @@
   "appenders": [
     {
       "type": "file",
-      "filename": "./../logs/app.log",
+      "filename": "../logs/app.log",
       "maxLogSize": 1048576,
       "backups": 5,
       "layout": {
